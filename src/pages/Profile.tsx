@@ -82,7 +82,7 @@ export default function ProfilePage() {
           fetchProfileAndMetrics();
         }
       } else {
-        alert(data.error);
+        alert(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error)));
       }
     } catch(e) {}
   };
@@ -245,7 +245,7 @@ export default function ProfilePage() {
                             fetchProfile();
                           } else {
                             const err = await res.json();
-                            alert(err.error || 'Failed to request certification');
+                            alert(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error) || 'Failed to request certification'));
                           }
                         }
                       }} className="hover:text-blue-500 ml-1 ml-2 text-xs" title="Request Certification">

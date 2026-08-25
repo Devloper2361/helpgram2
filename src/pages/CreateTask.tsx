@@ -63,7 +63,7 @@ export default function CreateTaskPage() {
         setAiSuccessMsg(`Suggested Service: ${data.serviceName} - ${data.shortReason}`);
       } else {
         const err = await res.json();
-        setAiError(err.error || "Failed to generate AI suggestion.");
+        setAiError(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error) || "Failed to generate AI suggestion."));
       }
     } catch (err: unknown) {
       const message = err instanceof Error

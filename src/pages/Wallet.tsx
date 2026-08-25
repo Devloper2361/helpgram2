@@ -133,7 +133,7 @@ export default function WalletPage() {
           rzp.open();
         } else {
            const err = await res.json();
-           alert(err.error);
+           alert(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error)));
         }
       } catch (e) { console.error(e); }
     }
@@ -159,7 +159,7 @@ export default function WalletPage() {
           fetchWalletData();
         } else {
            const err = await res.json();
-           alert(err.error);
+           alert(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error)));
         }
       } catch (e) { console.error(e); }
     }
@@ -192,7 +192,7 @@ export default function WalletPage() {
         fetchWalletData();
       } else {
         const err = await res.json();
-        alert(err.error);
+        alert(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error)));
       }
     } catch (e) { console.error(e); }
   };
@@ -215,7 +215,7 @@ export default function WalletPage() {
       if (res.ok) fetchWalletData();
       else {
         const err = await res.json();
-        alert(err.error);
+        alert(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error)));
       }
     } catch (e) { console.error(e); }
   };

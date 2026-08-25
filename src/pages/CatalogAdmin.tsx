@@ -75,7 +75,7 @@ export default function CatalogAdminPage() {
         fetchCatalog();
       } else {
         const err = await res.json();
-        toast.error(err.error || "Action failed");
+        toast.error(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error) || "Action failed"));
       }
     } catch (err) {
       toast.error("Network error");
@@ -91,7 +91,7 @@ export default function CatalogAdminPage() {
         fetchCatalog();
       } else {
         const err = await res.json();
-        toast.error(err.error || "Action failed");
+        toast.error(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error) || "Action failed"));
       }
     } catch (err) {
       toast.error("Network error");
@@ -122,7 +122,7 @@ export default function CatalogAdminPage() {
         fetchCatalog();
       } else {
         const err = await res.json();
-        toast.error(err.error || "Action failed");
+        toast.error(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error) || "Action failed"));
       }
     } catch (err) {
       toast.error("Network error");
@@ -138,7 +138,7 @@ export default function CatalogAdminPage() {
         fetchCatalog();
       } else {
         const err = await res.json();
-        toast.error(err.error || "Action failed");
+        toast.error(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error) || "Action failed"));
       }
     } catch (err) {
       toast.error("Network error");

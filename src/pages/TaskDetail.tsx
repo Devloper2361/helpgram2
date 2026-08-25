@@ -156,7 +156,7 @@ export default function TaskDetailPage() {
         fetchTask();
       } else {
         const data = await res.json();
-        alert(data.error);
+        alert(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error)));
       }
     } catch(e) {}
   };
@@ -174,7 +174,7 @@ export default function TaskDetailPage() {
         fetchTask();
       } else {
         const data = await res.json();
-        alert(data.error);
+        alert(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error)));
       }
     } catch (e) {}
   };
@@ -200,7 +200,7 @@ export default function TaskDetailPage() {
         if (res.status === 403) {
           setApplyError(data);
         } else {
-          alert(data.error || "Failed to apply");
+          alert(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error) || "Failed to apply"));
         }
       }
     } catch (e) {}
@@ -225,7 +225,7 @@ export default function TaskDetailPage() {
       if (res.ok) fetchTask();
       else {
         const data = await res.json();
-        alert(data.error);
+        alert(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error)));
       }
     } catch (e) {}
   };

@@ -32,7 +32,7 @@ export default function AdminCertifications() {
       fetchCerts();
     } else {
       const err = await res.json();
-      alert(err.error || "Failed to update certification");
+      alert(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error) || "Failed to update certification"));
     }
   };
 
