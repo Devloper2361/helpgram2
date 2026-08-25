@@ -1,0 +1,471 @@
+// schema_v2.prisma
+// Optimized for PostgreSQL Production Deployment
+// Includes consistency constraints, precision fixes, index optimizations, & auditability.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum TaskStatus {
+  DRAFT
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum EscrowStatus {
+  AVAILABLE
+  LOCKED
+  RELEASED
+  REFUNDED
+  DISPUTED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  ESCROW_LOCK
+  ESCROW_RELEASE
+  ESCROW_REFUND
+  PLATFORM_FEE
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum DisputeStatus {
+  PENDING_REVIEW
+  IN_MEDIATION
+  RESOLVED_REFUND
+  RESOLVED_PAYOUT
+}
+
+enum NotificationType {
+  SYSTEM
+  TASK_UPDATE
+  NEW_MESSAGE
+  FUNDS_UPDATE
+  DISPUTE_UPDATE
+  SECURITY_ALERT
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  SYSTEM
+}
+
+enum ReviewType {
+  TASKER
+  REQUESTER
+}
+
+// -----------------------------------------------------------------------------
+// MODELS
+// -----------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(USER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relationships
+  profile         Profile?
+  sessions        Session[]
+  devices         Device[]
+  wallet          Wallet?
+  kycVerification KYCVerification?
+
+  requestedTasks Task[] @relation("RequesterTasks")
+  acceptedTasks  Task[] @relation("TaskerTasks")
+
+  applications TaskApplication[]
+
+  givenReviews    Review[] @relation("GivenReviews")
+  receivedReviews Review[] @relation("ReceivedReviews")
+
+  notifications Notification[]
+  sentMessages  Message[]      @relation("SentMessages")
+
+  messageThreadsAsRequester MessageThread[] @relation("RequesterThreads")
+  messageThreadsAsTasker    MessageThread[] @relation("TaskerThreads")
+
+  raisedDisputes Dispute[]      @relation("DisputesRaised")
+  adminLogs      AdminLog[]     @relation("AdminLogs")
+  cancellations  Cancellation[]
+
+  @@index([email])
+}
+
+model Profile {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @unique @db.Uuid
+  fullName    String?
+  bio         String?
+  avatarUrl   String?
+  locationLat Float?
+  locationLng Float?
+  trustScore  Decimal  @default(0.0) @db.Decimal(5, 2)
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills      Skill[]
+  userMetrics UserMetrics?
+
+  // Spatial search optimization (PostGIS placeholder for latency optimization)
+  @@index([locationLat, locationLng])
+  @@index([trustScore(sort: Desc)])
+}
+
+model Device {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @db.Uuid
+  pushToken  String   @unique
+  deviceType String?
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @db.Uuid
+  sessionToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([sessionToken])
+}
+
+model Skill {
+  id   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name String @unique
+
+  profiles Profile[]
+  tasks    TaskSkill[]
+
+  @@index([name])
+}
+
+model TaskSkill {
+  taskId  String @db.Uuid
+  skillId String @db.Uuid
+
+  task  Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, skillId])
+  @@index([skillId])
+}
+
+model Task {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requesterId  String     @db.Uuid
+  taskerId     String?    @db.Uuid
+  title        String
+  description  String
+  // Precision adjusted to prevent monetary rounding errors during percentile fee maths
+  price        Decimal    @db.Decimal(12, 4)
+  status       TaskStatus @default(OPEN)
+  scheduledFor DateTime
+  locationLat  Float
+  locationLng  Float
+  
+  startedAt    DateTime?
+  completedAt  DateTime?
+  cancelledAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  requester     User              @relation("RequesterTasks", fields: [requesterId], references: [id], onDelete: Restrict)
+  tasker        User?             @relation("TaskerTasks", fields: [taskerId], references: [id], onDelete: SetNull)
+  skills        TaskSkill[]
+  applications  TaskApplication[]
+  escrowEntry   EscrowEntry?
+  reviews       Review[]
+  messageThread MessageThread?
+  media         MediaAttachment[]
+  dispute       Dispute?
+  cancellations Cancellation[]
+
+  // Real-time querying indices 
+  @@index([status, scheduledFor])
+  @@index([locationLat, locationLng], name: "task_location_idx") // B-Tree mapping for geo-bounding radius
+  @@index([requesterId])
+  @@index([taskerId])
+}
+
+model TaskApplication {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId    String   @db.Uuid
+  taskerId  String   @db.Uuid
+  message   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tasker User @relation(fields: [taskerId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, taskerId])
+  @@index([taskerId])
+}
+
+model Wallet {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String   @unique @db.Uuid
+  stripeAccountId  String?  @unique
+  // Financial fields must be 12, 4 to support micro-cents and standard accounting precision
+  balanceAvailable Decimal  @default(0.0) @db.Decimal(12, 4)
+  balanceEscrowed  Decimal  @default(0.0) @db.Decimal(12, 4)
+  currency         String   @default("USD") @db.VarChar(3)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  transactions Transaction[]
+}
+
+model Transaction {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  walletId        String            @db.Uuid
+  taskId          String?           @db.Uuid
+  escrowEntryId   String?           @db.Uuid
+  amount          Decimal           @db.Decimal(12, 4)
+  type            TransactionType
+  status          TransactionStatus @default(PENDING)
+  // Required idempotency key to prevent double charging on webhook retries
+  idempotencyKey  String?           @unique
+  stripePaymentId String?           @unique
+  metadata        Json?             // Unstructured log for raw stripe hooks
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relationships
+  wallet      Wallet       @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  escrowEntry EscrowEntry? @relation(fields: [escrowEntryId], references: [id], onDelete: SetNull)
+
+  // Critical indexes for wallet ledger derivation
+  @@index([walletId, createdAt(sort: Desc)])
+  @@index([walletId, status, type])
+  @@index([taskId])
+}
+
+model EscrowEntry {
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId    String       @unique @db.Uuid
+  amount    Decimal      @db.Decimal(12, 4)
+  status    EscrowStatus @default(LOCKED)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  task         Task          @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  transactions Transaction[] // An escrow has multiple transactions (lock, release, refund, fee)
+  
+  @@index([status])
+}
+
+model PlatformRevenue {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId        String?  @unique @db.Uuid
+  transactionId String?  @unique @db.Uuid
+  amount        Decimal  @db.Decimal(12, 4)
+  description   String?
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model Review {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId     String     @db.Uuid
+  reviewerId String     @db.Uuid
+  revieweeId String     @db.Uuid
+  type       ReviewType
+  rating     Int        @db.SmallInt // 1-5 Scale, stored as SmallInt for perf
+  comment    String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  task     Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reviewer User @relation("GivenReviews", fields: [reviewerId], references: [id], onDelete: Restrict)
+  reviewee User @relation("ReceivedReviews", fields: [revieweeId], references: [id], onDelete: Restrict)
+
+  @@unique([taskId, reviewerId, revieweeId])
+  @@index([revieweeId, rating])
+}
+
+model UserMetrics {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profileId            String   @unique @db.Uuid
+  tasksCompleted       Int      @default(0)
+  tasksCancelled       Int      @default(0)
+  totalEarned          Decimal  @default(0.0) @db.Decimal(12, 4)
+  totalSpent           Decimal  @default(0.0) @db.Decimal(12, 4)
+  avgRatingAsTasker    Decimal  @default(0.0) @db.Decimal(3, 2)
+  avgRatingAsRequester Decimal  @default(0.0) @db.Decimal(3, 2)
+  updatedAt            DateTime @updatedAt
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String           @db.Uuid
+  type            NotificationType
+  content         String
+  relatedEntityId String?          @db.Uuid // IDs referencing tasks, disputes, messages
+  isRead          Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt(sort: Desc)])
+}
+
+model MessageThread {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId      String   @unique @db.Uuid
+  requesterId String   @db.Uuid
+  taskerId    String   @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  task      Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  requester User @relation("RequesterThreads", fields: [requesterId], references: [id], onDelete: Restrict)
+  tasker    User @relation("TaskerThreads", fields: [taskerId], references: [id], onDelete: Restrict)
+
+  messages Message[]
+
+  @@unique([requesterId, taskerId, taskId])
+  @@index([requesterId])
+  @@index([taskerId])
+}
+
+model Message {
+  id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  threadId  String      @db.Uuid
+  senderId  String      @db.Uuid
+  content   String
+  type      MessageType @default(TEXT)
+  isRead    Boolean     @default(false)
+  createdAt DateTime    @default(now())
+
+  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender User          @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt(sort: Desc)])
+}
+
+model MediaAttachment {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId     String   @db.Uuid
+  url        String
+  fileType   String
+  uploadedBy String   @db.Uuid
+  createdAt  DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  @@index([taskId])
+}
+
+model Dispute {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId     String        @unique @db.Uuid
+  raisedById String        @db.Uuid
+  reason     String
+  status     DisputeStatus @default(PENDING_REVIEW)
+  resolution String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  task     Task @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  raisedBy User @relation("DisputesRaised", fields: [raisedById], references: [id], onDelete: Restrict)
+  
+  @@index([status])
+}
+
+model AdminLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminId    String   @db.Uuid
+  action     String
+  entityType String
+  entityId   String   @db.Uuid
+  details    Json?    // Use JSON to capture structured exact before/after state
+  createdAt  DateTime @default(now())
+
+  admin      User     @relation("AdminLogs", fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([entityType, entityId])
+}
+
+model KYCVerification {
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String             @unique @db.Uuid
+  providerKey  String?            @unique // Connects external Persona/Jumio ref
+  status       VerificationStatus @default(UNVERIFIED)
+  documentsUrl String?
+  notes        String?
+  submittedAt  DateTime?
+  verifiedAt   DateTime?
+  updatedAt    DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model Cancellation {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId         String   @db.Uuid
+  userId         String   @db.Uuid
+  reason         String
+  penaltyApplied Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  
+  @@index([taskId])
+  @@index([userId])
+}

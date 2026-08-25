@@ -1,0 +1,6 @@
+ALTER TABLE "Task"
+ADD COLUMN "address" TEXT,
+ADD COLUMN "landmark" TEXT,
+ADD COLUMN "city" TEXT,
+ADD COLUMN "state" TEXT,
+ADD COLUMN "category" TEXT;

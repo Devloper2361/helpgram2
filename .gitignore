@@ -1,0 +1,14 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+uploads/
+demo-proof.png
+
+prisma/*.db
+prisma/*.db-journal

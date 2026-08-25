@@ -1,0 +1,25 @@
+--- src/api/dashboard.routes.ts
++++ src/api/dashboard.routes.ts
+@@ -75,8 +75,5 @@
+ 
+     if (userRole === "SOCIETY_ADMIN") {
+       if (targetSocietyId) {
+         const membership = await prisma.societyMembership.findFirst({
+@@ -101,8 +98,5 @@
+       }
+     } else if (userRole === "FEDERATION_ADMIN") {
+       if (!targetSocietyId) {
+         return res.status(400).json({ error: "societyId query parameter is required" });
+@@ -121,9 +115,6 @@
+       }
+     } else if (userRole === "PLATFORM_ADMIN" || userRole === "ADMIN") {
+-      if (!targetSocietyId) {
+-        return res.status(400).json({ error: "societyId query parameter is required" });
+-      }
+-      const society = await prisma.cooperativeSociety.findUnique({
+-        where: { id: targetSocietyId }
+-      });
+-      if (!society) {
+-        return res.status(404).json({ error: "Society not found" });
+-      }
+     } else {
