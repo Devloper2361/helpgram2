@@ -127,8 +127,8 @@ router.post("/", authenticate, async (req: any, res: any) => {
       return res.status(400).json({ error: error.flatten() });
     }
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("SELECT HELPER 500 ERROR:", error);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
 
@@ -254,8 +254,8 @@ router.get("/", optionalAuth, async (req: any, res: any) => {
     res.json({ tasks, total, page: pageNum, limit: take });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("SELECT HELPER 500 ERROR:", error);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
 
@@ -288,8 +288,8 @@ router.get("/my-tasks", authenticate, async (req: any, res: any) => {
     res.json({ postedTasks, helpingTasks });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("SELECT HELPER 500 ERROR:", error);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
 
@@ -312,14 +312,14 @@ router.get("/:id", optionalAuth, async (req: any, res: any) => {
     });
 
     if (!task) {
-      return res.status(404).json({ error: "Task not found" });
+      return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
     }
 
     res.json({ task });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("SELECT HELPER 500 ERROR:", error);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
 
@@ -345,8 +345,8 @@ router.put("/:id", authenticate, async (req: any, res: any) => {
     const data = updateTaskSchema.parse(req.body);
 
     const task = await prisma.task.findUnique({ where: { id } });
-    if (!task) return res.status(404).json({ error: "Task not found" });
-    if (task.requesterId !== userId) return res.status(403).json({ error: "Unauthorized" });
+    if (!task) return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
+    if (task.requesterId !== userId) return res.status(403).json({ error: "Unauthorized" }); console.log("403 Unauthorized");
     if (task.status !== TaskStatus.OPEN) return res.status(400).json({ error: "Only OPEN tasks can be edited" });
 
     const updatedTask = await prisma.task.update({
@@ -373,8 +373,8 @@ router.put("/:id", authenticate, async (req: any, res: any) => {
       return res.status(400).json({ error: error.flatten() });
     }
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("SELECT HELPER 500 ERROR:", error);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
 
@@ -385,8 +385,8 @@ router.post("/:id/cancel", authenticate, async (req: any, res: any) => {
     const userId = req.user.userId;
 
     const task = await prisma.task.findUnique({ where: { id } });
-    if (!task) return res.status(404).json({ error: "Task not found" });
-    if (task.requesterId !== userId) return res.status(403).json({ error: "Unauthorized" });
+    if (!task) return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
+    if (task.requesterId !== userId) return res.status(403).json({ error: "Unauthorized" }); console.log("403 Unauthorized");
     if (task.status === TaskStatus.COMPLETED || task.status === TaskStatus.CANCELLED) {
        return res.status(400).json({ error: "Task cannot be cancelled from current status." });
     }
@@ -442,8 +442,8 @@ router.post("/:id/cancel", authenticate, async (req: any, res: any) => {
       return res.status(400).json({ error: error.message });
     }
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("SELECT HELPER 500 ERROR:", error);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
 
@@ -456,9 +456,9 @@ router.post("/:id/apply", authenticate, async (req: any, res: any) => { console.
     const userId = req.user.userId;
 
     const task = await prisma.task.findUnique({ where: { id } });
-    if (!task) return res.status(404).json({ error: "Task not found" });
+    if (!task) return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
     if (task.requesterId === userId) return res.status(400).json({ error: "Cannot apply to own task" });
-    if (task.status !== TaskStatus.OPEN) return res.status(400).json({ error: "Task is not open" });
+    if (task.status !== TaskStatus.OPEN) return res.status(400).json({ error: "Task is not open" }); console.log("400 Task not open");
 
     const kyc = await prisma.kYCVerification.findUnique({ where: { userId } });
     if (!kyc || kyc.status !== "VERIFIED") {
@@ -516,8 +516,8 @@ router.post("/:id/apply", authenticate, async (req: any, res: any) => { console.
     res.status(201).json({ application });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("SELECT HELPER 500 ERROR:", error);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
 
@@ -528,7 +528,7 @@ router.get("/:id/applications", authenticate, async (req: any, res: any) => {
     const userId = req.user.userId;
 
     const task = await prisma.task.findUnique({ where: { id } });
-    if (!task) return res.status(404).json({ error: "Task not found" });
+    if (!task) return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
     
     let whereClause: any = { taskId: id };
     if (task.requesterId !== userId) {
@@ -554,8 +554,8 @@ router.get("/:id/applications", authenticate, async (req: any, res: any) => {
     res.json({ applications });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("SELECT HELPER 500 ERROR:", error);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
 
@@ -563,6 +563,7 @@ router.get("/:id/applications", authenticate, async (req: any, res: any) => {
 import { lockFundsTx, releaseFundsTx, refundFundsTx, WalletError } from "../lib/wallet.js";
 
 router.post("/:id/select-helper", authenticate, async (req: any, res: any) => {
+  console.log("HIT select-helper with taskerId:", req.body.taskerId);
   try {
     const { id } = req.params;
     const userId = req.user.userId;
@@ -571,9 +572,9 @@ router.post("/:id/select-helper", authenticate, async (req: any, res: any) => {
     if (!taskerId) return res.status(400).json({ error: "Missing taskerId" });
 
     const task = await prisma.task.findUnique({ where: { id } });
-    if (!task) return res.status(404).json({ error: "Task not found" });
-    if (task.requesterId !== userId) return res.status(403).json({ error: "Unauthorized" });
-    if (task.status !== TaskStatus.OPEN) return res.status(400).json({ error: "Task is not open" });
+    if (!task) return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
+    if (task.requesterId !== userId) return res.status(403).json({ error: "Unauthorized" }); console.log("403 Unauthorized");
+    if (task.status !== TaskStatus.OPEN) return res.status(400).json({ error: "Task is not open" }); console.log("400 Task not open");
 
     const application = await prisma.taskApplication.findUnique({
       where: {
@@ -581,7 +582,7 @@ router.post("/:id/select-helper", authenticate, async (req: any, res: any) => {
       }
     });
 
-    if (!application) return res.status(400).json({ error: "Helper did not apply for this task" });
+    if (!application) return res.status(400).json({ error: "Helper did not apply for this task" }); console.log("400 Helper did not apply");
 
     const updatedTask = await prisma.$transaction(async (tx) => {
       const updated = await tx.task.update({
@@ -650,7 +651,7 @@ router.post("/:id/start", authenticate, async (req: any, res: any) => {
     const userId = req.user.userId;
 
     const task = await prisma.task.findUnique({ where: { id } });
-    if (!task) return res.status(404).json({ error: "Task not found" });
+    if (!task) return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
     if (task.taskerId !== userId) return res.status(403).json({ error: "Unauthorized. Only accepted helper can start." });
     if (task.status !== TaskStatus.ACCEPTED) return res.status(400).json({ error: "Task cannot be started from current status." });
 
@@ -679,8 +680,8 @@ router.post("/:id/start", authenticate, async (req: any, res: any) => {
     res.json({ task: updatedTask });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("SELECT HELPER 500 ERROR:", error);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
 
@@ -730,7 +731,7 @@ router.post("/:id/submit-proof", authenticate, upload.single('evidence'), async 
     const userId = req.user.userId;
 
     const task = await prisma.task.findUnique({ where: { id } });
-    if (!task) return res.status(404).json({ error: "Task not found" });
+    if (!task) return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
     if (task.taskerId !== userId) return res.status(403).json({ error: "Unauthorized. Only accepted helper can submit proof." });
     if (task.status !== TaskStatus.IN_PROGRESS) return res.status(400).json({ error: "Cannot submit proof from current status." });
 
@@ -774,8 +775,8 @@ router.post("/:id/submit-proof", authenticate, upload.single('evidence'), async 
     res.json({ task: updatedTask, fileUrl });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("SELECT HELPER 500 ERROR:", error);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
 
@@ -786,7 +787,7 @@ router.post("/:id/approve", authenticate, async (req: any, res: any) => {
     const userId = req.user.userId;
 
     const task = await prisma.task.findUnique({ where: { id } });
-    if (!task) return res.status(404).json({ error: "Task not found" });
+    if (!task) return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
     if (task.requesterId !== userId) return res.status(403).json({ error: "Unauthorized. Only owner can approve." });
     if (task.status !== TaskStatus.PROOF_SUBMITTED) {
        return res.status(400).json({ error: "Task must have proof submitted to be approved." });
@@ -866,7 +867,7 @@ router.post("/:id/review", authenticate, async (req: any, res: any) => {
     const parsed = reviewSchema.parse(req.body);
 
     const task = await prisma.task.findUnique({ where: { id } });
-    if (!task) return res.status(404).json({ error: "Task not found" });
+    if (!task) return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
     if (task.status !== TaskStatus.COMPLETED) {
       return res.status(400).json({ error: "Task must be COMPLETED to leave a review." });
     }
@@ -921,8 +922,8 @@ router.post("/:id/review", authenticate, async (req: any, res: any) => {
   } catch (error: any) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: error.flatten() });
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("SELECT HELPER 500 ERROR:", error);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
 
@@ -938,7 +939,7 @@ router.post("/:id/dispute", authenticate, disputeLimiter, async (req: any, res: 
     const { reason } = disputeSchema.parse(req.body);
 
     const task = await prisma.task.findUnique({ where: { id } });
-    if (!task) return res.status(404).json({ error: "Task not found" });
+    if (!task) return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
 
     const allowedStatuses: TaskStatus[] = [TaskStatus.ACCEPTED, TaskStatus.IN_PROGRESS, TaskStatus.PROOF_SUBMITTED, TaskStatus.COMPLETED];
     if (!allowedStatuses.includes(task.status)) {
@@ -1018,8 +1019,8 @@ router.post("/:id/dispute", authenticate, disputeLimiter, async (req: any, res: 
   } catch (error: any) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: error.flatten() });
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("SELECT HELPER 500 ERROR:", error);
+    res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
 
@@ -1047,7 +1048,7 @@ router.get("/:id/invoice", authenticate, async (req: any, res: any) => {
       }
     });
 
-    if (!task) return res.status(404).json({ error: "Task not found" });
+    if (!task) return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
     const platformRevenueRecord = await prisma.platformRevenue.findUnique({ where: { taskId: id } });
     task.platformRevenue = platformRevenueRecord;
     

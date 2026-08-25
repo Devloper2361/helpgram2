@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Calendar, DollarSign, User, ShieldCheck, Mail, CheckCircle2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -122,7 +123,7 @@ export default function TaskDetailPage() {
   };
 
   const handleCancel = async () => {
-    if (!confirm("Are you sure you want to cancel this task?")) return;
+    
     try {
       const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
       if (res.ok) fetchTask();
@@ -151,12 +152,12 @@ export default function TaskDetailPage() {
             body: JSON.stringify({ url: evidenceUrl, fileType: evidenceUrl.split('.').pop() || "unknown" })
           });
         }
-        alert("Dispute submitted. Admins will review it soon.");
+        toast.success("Dispute submitted. Admins will review it soon.");
         setIsDisputing(false);
         fetchTask();
       } else {
         const data = await res.json();
-        alert(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error)));
+        toast.error(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error)));
       }
     } catch(e) {}
   };
@@ -169,19 +170,19 @@ export default function TaskDetailPage() {
         body: JSON.stringify(reviewForm)
       });
       if (res.ok) {
-        alert("Review submitted!");
+        toast.success("Review submitted!");
         setIsReviewing(false);
         fetchTask();
       } else {
         const data = await res.json();
-        alert(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error)));
+        toast.error(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error)));
       }
     } catch (e) {}
   };
 
   const handleApply = async () => {
     if (!currentUser) {
-      alert("Please log in to apply");
+      toast.error("Please log in to apply");
       return;
     }
     setApplyError(null);
@@ -192,7 +193,7 @@ export default function TaskDetailPage() {
         body: JSON.stringify({ message: applyMessage })
       });
       if (res.ok) {
-        alert("Applied successfully!");
+        toast.success("Applied successfully!");
         setIsApplying(false);
         fetchTask();
       } else {
@@ -200,22 +201,32 @@ export default function TaskDetailPage() {
         if (res.status === 403) {
           setApplyError(data);
         } else {
-          alert(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error) || "Failed to apply"));
+          toast.error(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error) || "Failed to apply"));
         }
       }
     } catch (e) {}
   };
 
   const handleSelectHelper = async (taskerId: string) => {
-    if (!confirm("Select this helper to perform the task?")) return;
+    console.log("handleSelectHelper called with taskerId:", taskerId);
+    console.log("Fetching /api/tasks/" + id + "/select-helper");
+    
     try {
       const res = await fetch(`/api/tasks/${id}/select-helper`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ taskerId })
       });
-      if (res.ok) fetchTask();
-      else { res.json().then((d: any) => alert(d.error)).catch(() => alert("Failed to select helper")); }
+      console.log("Response status:", res.status);
+      if (res.ok) {
+        console.log("Success! Refetching task...");
+        fetchTask();
+      } else {
+        res.json().then((d: any) => {
+          console.log("Error response:", d);
+          toast.error(typeof d.error === "string" ? d.error : (d.error?.formErrors?.[0] || JSON.stringify(d.error) || "Failed to select helper"));
+        }).catch(() => toast.error("Failed to select helper"));
+      }
     } catch (e) {}
   };
 
@@ -225,7 +236,7 @@ export default function TaskDetailPage() {
       if (res.ok) fetchTask();
       else {
         const data = await res.json();
-        alert(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error)));
+        toast.error(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error)));
       }
     } catch (e) {}
   };
@@ -331,7 +342,7 @@ export default function TaskDetailPage() {
             if (res.ok) fetchTask();
             else {
               const d = await res.json();
-              alert(d.error);
+              toast.error(d.error);
             }
           } catch(e) {}
         }}
