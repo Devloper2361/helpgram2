@@ -21,7 +21,7 @@ export default function CatalogPage() {
       if (servData.services) setServices(servData.services);
       setLoading(false);
     }).catch(err => {
-      console.error(err);
+      console.log(err);
       setLoading(false);
     });
   }, []);

@@ -69,6 +69,6 @@ export async function runAutoRelease() {
       }
     }
   } catch (error) {
-    console.error("[Job] Auto release worker error:", error);
+    console.error("[Job] Auto release worker error:", error?.message || error);
   }
 }

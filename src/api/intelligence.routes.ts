@@ -302,7 +302,7 @@ router.get("/society", authenticate, async (req: any, res: any) => {
       ]
     });
   } catch (error) {
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -335,7 +335,7 @@ router.get("/federation", authenticate, async (req: any, res: any) => {
     const demandList = await computeMetrics(federationId);
     res.json({ analytics: demandList });
   } catch (error) {
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -455,7 +455,7 @@ router.post("/interpret", authenticate, aiLimiter, async (req: any, res: any) =>
       interpretation: parsedOutput.data
     });
   } catch (error) {
-    console.error("AI Interpretation Error:", error);
+    console.error("AI Interpretation Error:", error?.message || error);
     res.status(500).json({ aiAvailable: false, message: "AI interpretation is temporarily unavailable." });
   }
 });

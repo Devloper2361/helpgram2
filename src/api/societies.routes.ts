@@ -93,10 +93,10 @@ router.post("/:id/apply", authenticate, async (req: any, res: any) => {
             type: "SYSTEM",
             content: "A worker has requested to join your cooperative society."
           }
-        }).catch(e => console.error(e));
+        }).catch(e => console.error(e?.message || e));
       }
     } catch (e) {
-      console.error("Failed to fetch admins for notification", e);
+      console.error("Failed to fetch admins for notification", e?.message || e);
     }
 
     res.json({ membership });
@@ -104,7 +104,7 @@ router.post("/:id/apply", authenticate, async (req: any, res: any) => {
     if (error?.code === "P2002") {
       return res.status(400).json({ error: "Already applied to this society" });
     }
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

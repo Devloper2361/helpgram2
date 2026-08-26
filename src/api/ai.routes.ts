@@ -145,7 +145,7 @@ ${JSON.stringify(serviceContext, null, 2)}
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.flatten() });
     }
-    console.error("AI Assistant Error:", error);
+    console.error("AI Assistant Error:", error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

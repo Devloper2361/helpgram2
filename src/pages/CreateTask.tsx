@@ -81,7 +81,7 @@ export default function CreateTaskPage() {
       .then(data => {
         if (data.services) setServices(data.services);
       })
-      .catch(err => console.error("Failed to load services", err));
+      .catch(err => console.error("Failed to load services", err?.message || err));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

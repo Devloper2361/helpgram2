@@ -40,7 +40,7 @@ router.get("/:id/reviews", async (req, res) => {
       }
     });
   } catch(e) {
-    console.error(e);
+    console.error(e?.message || e);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -86,7 +86,7 @@ router.get("/:id/trust", async (req, res) => {
       totalSpending: userMetrics?.totalSpent || 0
     });
   } catch(e) {
-    console.error(e);
+    console.error(e?.message || e);
     res.status(500).json({ error: "Internal server error" });
   }
 });

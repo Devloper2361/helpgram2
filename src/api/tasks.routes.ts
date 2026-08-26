@@ -127,7 +127,7 @@ router.post("/", authenticate, async (req: any, res: any) => {
       return res.status(400).json({ error: error.flatten() });
     }
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error("SELECT HELPER 500 ERROR:", error);
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
@@ -254,7 +254,7 @@ router.get("/", optionalAuth, async (req: any, res: any) => {
     res.json({ tasks, total, page: pageNum, limit: take });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error("SELECT HELPER 500 ERROR:", error);
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
@@ -288,7 +288,7 @@ router.get("/my-tasks", authenticate, async (req: any, res: any) => {
     res.json({ postedTasks, helpingTasks });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error("SELECT HELPER 500 ERROR:", error);
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
@@ -318,7 +318,7 @@ router.get("/:id", optionalAuth, async (req: any, res: any) => {
     res.json({ task });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error("SELECT HELPER 500 ERROR:", error);
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
@@ -373,7 +373,7 @@ router.put("/:id", authenticate, async (req: any, res: any) => {
       return res.status(400).json({ error: error.flatten() });
     }
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error("SELECT HELPER 500 ERROR:", error);
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
@@ -418,7 +418,7 @@ router.post("/:id/cancel", authenticate, async (req: any, res: any) => {
         await updateMetricsAndTrust(prisma, task.taskerId);
       }
     } catch (e) {
-      console.error("Trust update failed in cancel", e);
+      console.error("Trust update failed in cancel", e?.message || e);
     }
 
     try {
@@ -433,7 +433,7 @@ router.post("/:id/cancel", authenticate, async (req: any, res: any) => {
         });
       }
     } catch (e) {
-      console.error("Failed to notify tasker of cancellation", e);
+      console.error("Failed to notify tasker of cancellation", e?.message || e);
     }
 
     res.json({ task: updatedTask });
@@ -442,7 +442,7 @@ router.post("/:id/cancel", authenticate, async (req: any, res: any) => {
       return res.status(400).json({ error: error.message });
     }
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error("SELECT HELPER 500 ERROR:", error);
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
@@ -510,13 +510,13 @@ router.post("/:id/apply", authenticate, async (req: any, res: any) => { console.
         }
       });
     } catch (e) {
-      console.error("Failed to notify customer of task application", e);
+      console.error("Failed to notify customer of task application", e?.message || e);
     }
 
     res.status(201).json({ application });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error("SELECT HELPER 500 ERROR:", error);
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
@@ -554,7 +554,7 @@ router.get("/:id/applications", authenticate, async (req: any, res: any) => {
     res.json({ applications });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error("SELECT HELPER 500 ERROR:", error);
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
@@ -630,7 +630,7 @@ router.post("/:id/select-helper", authenticate, async (req: any, res: any) => {
         }
       });
     } catch (e) {
-      console.error("Failed to notify worker of selection", e);
+      console.error("Failed to notify worker of selection", e?.message || e);
     }
 
     res.json({ task: updatedTask });
@@ -639,7 +639,7 @@ router.post("/:id/select-helper", authenticate, async (req: any, res: any) => {
       return res.status(400).json({ error: error.message });
     }
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error details: " + String(error.message || error) });
   }
 });
@@ -674,13 +674,13 @@ router.post("/:id/start", authenticate, async (req: any, res: any) => {
         }
       });
     } catch (e) {
-      console.error("Failed to notify customer of task start", e);
+      console.error("Failed to notify customer of task start", e?.message || e);
     }
 
     res.json({ task: updatedTask });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error("SELECT HELPER 500 ERROR:", error);
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
@@ -769,13 +769,13 @@ router.post("/:id/submit-proof", authenticate, upload.single('evidence'), async 
         }
       });
     } catch (e) {
-      console.error("Failed to notify customer of proof submission", e);
+      console.error("Failed to notify customer of proof submission", e?.message || e);
     }
 
     res.json({ task: updatedTask, fileUrl });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error("SELECT HELPER 500 ERROR:", error);
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
@@ -826,7 +826,7 @@ router.post("/:id/approve", authenticate, async (req: any, res: any) => {
         await updateMetricsAndTrust(prisma, task.taskerId);
       }
     } catch (e) {
-      console.error("Trust update failed in approve", e);
+      console.error("Trust update failed in approve", e?.message || e);
     }
 
     try {
@@ -839,7 +839,7 @@ router.post("/:id/approve", authenticate, async (req: any, res: any) => {
         }
       });
     } catch (e) {
-      console.error("Failed to notify tasker of completion", e);
+      console.error("Failed to notify tasker of completion", e?.message || e);
     }
 
     res.json({ task: updatedTask });
@@ -848,7 +848,7 @@ router.post("/:id/approve", authenticate, async (req: any, res: any) => {
       return res.status(400).json({ error: error.message });
     }
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error details: " + error.message });
   }
 });
@@ -915,14 +915,14 @@ router.post("/:id/review", authenticate, async (req: any, res: any) => {
     try {
       await updateMetricsAndTrust(prisma, revieweeId as string);
     } catch (e) {
-      console.error("Trust update failed in review", e);
+      console.error("Trust update failed in review", e?.message || e);
     }
 
     res.status(201).json({ review });
   } catch (error: any) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: error.flatten() });
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error("SELECT HELPER 500 ERROR:", error);
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
@@ -1012,14 +1012,14 @@ router.post("/:id/dispute", authenticate, disputeLimiter, async (req: any, res: 
         });
       }
     } catch (e) {
-      console.error("Failed to notify dispute updates", e);
+      console.error("Failed to notify dispute updates", e?.message || e);
     }
 
     res.status(201).json({ task: updatedTask });
   } catch (error: any) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: error.flatten() });
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error("SELECT HELPER 500 ERROR:", error);
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
@@ -1114,7 +1114,7 @@ router.get("/:id/invoice", authenticate, async (req: any, res: any) => {
 
     res.json(invoice);
   } catch (error) {
-    console.error("Failed to generate invoice", error);
+    console.error("Failed to generate invoice", error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

@@ -73,7 +73,7 @@ router.get("/threads", authenticate, async (req: any, res: any) => {
     res.json({ threads: threadDetails });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -121,7 +121,7 @@ router.get("/:taskId", authenticate, async (req: any, res: any) => {
   } catch (error: any) {
     if (error instanceof ChatAuthError) return res.status(error.statusCode).json({ error: error.message });
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -216,7 +216,7 @@ router.post("/:taskId/image", authenticate, upload.single('image'), async (req: 
   } catch (error: any) {
     if (error instanceof ChatAuthError) return res.status(error.statusCode).json({ error: error.message });
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -280,7 +280,7 @@ router.post("/:taskId", authenticate, async (req: any, res: any) => {
     if (error instanceof z.ZodError) return res.status(400).json({ error: error.flatten() });
     
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -315,7 +315,7 @@ router.put("/messages/:id/read", authenticate, async (req: any, res: any) => {
     res.json({ message: updatedMessage });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

@@ -96,6 +96,6 @@ export async function runReminderWorker() {
     }
 
   } catch (error) {
-    console.error("[Job] Reminder worker error:", error);
+    console.error("[Job] Reminder worker error:", error?.message || error);
   }
 }

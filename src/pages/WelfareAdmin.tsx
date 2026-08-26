@@ -41,7 +41,7 @@ export default function WelfareAdmin() {
         setClaims(data.claims);
       }
     } catch (e) {
-      console.error(e);
+      console.error(e?.message || e);
       setError("Failed to load welfare data");
     } finally {
       setLoading(false);
@@ -62,7 +62,7 @@ export default function WelfareAdmin() {
         setError(data.error || "Failed to update claim");
       }
     } catch (e) {
-      console.error(e);
+      console.error(e?.message || e);
       setError("Failed to update claim");
     }
   };
@@ -91,7 +91,7 @@ export default function WelfareAdmin() {
         setError(data.error || "Failed to update profile");
       }
     } catch (e) {
-      console.error(e);
+      console.error(e?.message || e);
       setError("Failed to update profile");
     }
   };

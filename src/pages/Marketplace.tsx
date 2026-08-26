@@ -56,7 +56,7 @@ export default function MarketplacePage() {
       }
 
     } catch (e) {
-      console.error(e);
+      console.error(e?.message || e);
     } finally {
       setLoading(false);
     }

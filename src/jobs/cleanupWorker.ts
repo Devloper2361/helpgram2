@@ -20,6 +20,6 @@ export async function runCleanupWorker() {
     console.log(`[Job] Deleted ${deletedCount.count} old notifications.`);
 
   } catch (error) {
-    console.error("[Job] Cleanup worker error:", error);
+    console.error("[Job] Cleanup worker error:", error?.message || error);
   }
 }

@@ -67,7 +67,7 @@ router.post("/", authenticate, async (req: any, res: any) => {
     res.status(201).json({ certification: cert });
   } catch (error: any) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: error.flatten() });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -84,7 +84,7 @@ router.get("/me", authenticate, async (req: any, res: any) => {
     });
     res.json({ certifications });
   } catch (error: any) {
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -165,12 +165,12 @@ router.post("/:id/status", authenticate, async (req: any, res: any) => {
           relatedEntityId: cert.id
         }
       });
-    } catch (e) { console.error("Notification failed", e); }
+    } catch (e) { console.error("Notification failed", e?.message || e); }
 
     res.json({ certification: updated });
   } catch (error: any) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: error.flatten() });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -246,7 +246,7 @@ router.get("/", authenticate, async (req: any, res: any) => {
 
     res.json({ certifications });
   } catch (error: any) {
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

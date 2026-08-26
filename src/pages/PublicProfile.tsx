@@ -25,7 +25,7 @@ export default function PublicProfilePage() {
       if (revData) setReviewsData(revData);
       if (trData && !trData.error) setTrustData(trData);
     })
-    .catch(console.error)
+    .catch(err => { console.log(err); })
     .finally(() => setLoading(false));
   }, [userId]);
 

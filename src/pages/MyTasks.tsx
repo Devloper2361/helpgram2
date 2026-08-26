@@ -26,7 +26,7 @@ export default function MyTasksPage() {
         setHelpingTasks(data.helpingTasks);
       }
     } catch (e) {
-      console.error(e);
+      console.error(e?.message || e);
     } finally {
       setLoading(false);
     }

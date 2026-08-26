@@ -73,7 +73,7 @@ export default function TaskDetailPage() {
         }
       }
     } catch (e) {
-      console.error(e);
+      console.log(e);
     } finally {
       setLoading(false);
     }

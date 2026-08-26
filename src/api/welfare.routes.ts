@@ -29,7 +29,7 @@ router.get("/profile", authenticate, async (req: any, res: any) => {
 
     res.json({ profile });
   } catch (error) {
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({
       error: "Internal server error"
     });
@@ -185,7 +185,7 @@ router.get("/claims", authenticate, async (req: any, res: any) => {
       claims
     });
   } catch (error) {
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({
       error: "Internal server error"
     });
@@ -231,7 +231,7 @@ router.post("/claims", authenticate, async (req: any, res: any) => {
       });
     }
 
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({
       error: "Internal server error"
     });
@@ -417,7 +417,7 @@ router.put("/claims/:id/status", authenticate, async (req: any, res: any) => {
         message: `Your welfare claim "${claim.title}" has been ${data.status}.`,
         type: "SYSTEM"
       }
-    }).catch(console.error);
+    }).catch(e => console.error(e?.message || e));
 
     res.json({
       claim: updatedClaim
@@ -429,7 +429,7 @@ router.put("/claims/:id/status", authenticate, async (req: any, res: any) => {
       });
     }
 
-    console.error(error);
+    console.error(error?.message || error);
 
     res.status(500).json({
       error: "Internal server error"
@@ -610,7 +610,7 @@ router.put("/profile/:workerId", authenticate, async (req: any, res: any) => {
       });
     }
 
-    console.error(error);
+    console.error(error?.message || error);
 
     res.status(500).json({
       error: "Internal server error"
@@ -754,7 +754,7 @@ router.get("/workers", authenticate, async (req: any, res: any) => {
       workers
     });
   } catch (error) {
-    console.error(error);
+    console.error(error?.message || error);
 
     res.status(500).json({
       error: "Internal server error"

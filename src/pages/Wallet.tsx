@@ -66,7 +66,7 @@ export default function WalletPage() {
         else if (pData.payoutMethods.length > 0) setSelectedPayoutMethod(pData.payoutMethods[0].id);
       }
     } catch (error) {
-      console.error(error);
+      console.error(error?.message || error);
     } finally {
       setLoading(false);
     }
@@ -135,7 +135,7 @@ export default function WalletPage() {
            const err = await res.json();
            alert(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error)));
         }
-      } catch (e) { console.error(e); }
+      } catch (e) { console.error(e?.message || e); }
     }
   };
 
@@ -161,7 +161,7 @@ export default function WalletPage() {
            const err = await res.json();
            alert(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error)));
         }
-      } catch (e) { console.error(e); }
+      } catch (e) { console.error(e?.message || e); }
     }
   };
 
@@ -194,7 +194,7 @@ export default function WalletPage() {
         const err = await res.json();
         alert(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error)));
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e?.message || e); }
   };
 
   const setAsDefault = async (id: string) => {
@@ -203,7 +203,7 @@ export default function WalletPage() {
         method: "POST"
       });
       if (res.ok) fetchWalletData();
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e?.message || e); }
   };
 
   const handleDeleteMethod = async (id: string) => {
@@ -217,7 +217,7 @@ export default function WalletPage() {
         const err = await res.json();
         alert(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error)));
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e?.message || e); }
   };
 
   if (loading) return <div className="p-8 text-center">{t("ui.loading_wallet")}</div>;

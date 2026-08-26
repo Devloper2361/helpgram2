@@ -83,7 +83,7 @@ router.get("/", authenticate, async (req: any, res: any) => {
       suggestedTasks,
     });
   } catch (error: any) {
-    console.error("Dashboard error:", error);
+    console.error("Dashboard error:", error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

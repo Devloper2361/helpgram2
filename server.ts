@@ -118,10 +118,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   if (err.code === "P2025" || (err.message && err.message.includes("P2025"))) {
     return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
   }
-  console.error("GLOBAL Unhandled error:", err, err.stack);
+  console.error("GLOBAL Unhandled error:", err?.message || err);
   res.status(500).json({ error: "Internal server error: " + String(err) });
 });
 
-app.listen(Number(process.env.PORT || 3000), "0.0.0.0", () => {
-  console.log(`Server listening on ${process.env.PORT || 3000}`);
+app.listen(3000, "0.0.0.0", () => {
+  console.log(`Server listening on 3000`);
 });

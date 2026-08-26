@@ -16,7 +16,7 @@ export default function DashboardPage() {
     fetch("/api/dashboard")
       .then(res => res.json())
       .then(data => setData(data))
-      .catch(console.error);
+      .catch(err => setData({ error: err.message || "Failed to load dashboard" }));
   }, []);
 
   if (!data) return <div className="p-8 text-center">{t("ui.loading_dashboard")}</div>;

@@ -39,7 +39,7 @@ export default function WelfareDashboard() {
         setClaims(data.claims);
       }
     } catch (e) {
-      console.error(e);
+      console.error(e?.message || e);
       setError("Failed to load welfare data");
     } finally {
       setLoading(false);
@@ -68,7 +68,7 @@ export default function WelfareDashboard() {
         setError(data.error || "Failed to submit claim");
       }
     } catch (e) {
-      console.error(e);
+      console.error(e?.message || e);
       setError("Failed to submit claim");
     }
   };

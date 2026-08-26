@@ -67,7 +67,7 @@ router.post("/:id/evidence", authenticate, async (req: any, res: any) => {
   } catch (error: any) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: error.flatten() });
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -107,7 +107,7 @@ router.get("/:id", authenticate, async (req: any, res: any) => {
     res.json({ dispute });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

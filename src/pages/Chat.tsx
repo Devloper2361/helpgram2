@@ -65,7 +65,7 @@ export default function ChatPage() {
         setThreads(data.threads);
       }
     } catch (e) {
-      console.error(e);
+      console.error(e?.message || e);
     } finally {
       setLoadingThreads(false);
     }
@@ -88,7 +88,7 @@ export default function ChatPage() {
         if (unreadToMe.length > 0) fetchThreads(); // refresh badghes
       }
     } catch (e) {
-      console.error(e);
+      console.error(e?.message || e);
     }
   };
 
@@ -114,7 +114,7 @@ export default function ChatPage() {
           fetchThreads();
        }
     } catch (e) {
-      console.error(e);
+      console.error(e?.message || e);
     }
   };
 
@@ -225,7 +225,7 @@ export default function ChatPage() {
                         fetchMessages(activeTaskId);
                         fetchThreads();
                       } catch (err) {
-                         console.error(err);
+                         console.error(err?.message || err);
                       }
                       e.target.value = '';
                     }} />

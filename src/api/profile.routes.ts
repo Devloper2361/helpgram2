@@ -52,7 +52,7 @@ router.get("/me", authenticate, async (req: any, res: any) => {
     res.json({ profile });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -87,7 +87,7 @@ router.put("/me", authenticate, async (req: any, res: any) => {
       return res.status(400).json({ error: error.flatten() });
     }
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -117,7 +117,7 @@ router.get("/:userId", async (req: any, res: any) => {
     res.json({ profile });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -161,7 +161,7 @@ router.post("/skills", authenticate, async (req: any, res: any) => {
       return res.status(400).json({ error: error.flatten() });
     }
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -193,7 +193,7 @@ router.delete("/skills/:id", authenticate, async (req: any, res: any) => {
     res.json({ profile: updatedProfile });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

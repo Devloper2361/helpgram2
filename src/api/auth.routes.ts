@@ -68,7 +68,7 @@ router.post("/register", authLimiter, async (req, res) => {
       return res.status(400).json({ error: error.flatten() });
     }
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: String(error) });
   }
 });
@@ -115,7 +115,7 @@ router.post("/login", authLimiter, async (req, res) => {
       return res.status(400).json({ error: error.flatten() });
     }
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: String(error) });
   }
 });

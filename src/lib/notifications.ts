@@ -20,7 +20,7 @@ export async function createNotification(
       }
     });
   } catch (err) {
-    console.error("Failed to create notification:", err);
+    console.error("Failed to create notification:", err?.message || err);
     // don't throw to prevent breaking business logic in some cases,
     // although if tx is a real Prisma transaction, eating errors might still cause tx failure depending on error type.
   }

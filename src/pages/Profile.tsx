@@ -39,10 +39,10 @@ export default function ProfilePage() {
           if (revData) setReviewsData(revData);
           if (trData && !trData.error) setTrustData(trData);
           if (kData && kData.kyc) setKycData(kData.kyc);
-        }).catch(console.error);
+        }).catch(err => { console.log(err); });
       }
     } catch (e) {
-      console.error(e);
+      console.log(e);
     } finally {
       setLoading(false);
     }

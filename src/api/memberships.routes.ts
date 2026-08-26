@@ -110,12 +110,12 @@ router.post("/:id/status", authenticate, async (req: any, res: any) => {
         }
       }
     } catch (e) {
-      console.error("Failed to notify worker of membership status change", e);
+      console.error("Failed to notify worker of membership status change", e?.message || e);
     }
 
     res.json({ membership: updated });
   } catch (error: any) {
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

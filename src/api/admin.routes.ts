@@ -69,7 +69,7 @@ router.get("/disputes", async (req: any, res: any) => {
     res.json({ disputes, total, page: pageNum, limit: take });
   } catch (error: any) {
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -142,7 +142,7 @@ router.post("/disputes/:id/refund", async (req: any, res: any) => {
   } catch (error: any) {
     if (error instanceof WalletError) return res.status(400).json({ error: error.message });
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error details: " + error.message });
   }
 });
@@ -227,7 +227,7 @@ router.post("/disputes/:id/payout", async (req: any, res: any) => {
   } catch (error: any) {
     if (error instanceof WalletError) return res.status(400).json({ error: error.message });
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error: " + error.message });
   }
 });
@@ -321,7 +321,7 @@ router.post("/disputes/:id/partial-release", async (req: any, res: any) => {
     if (error instanceof WalletError) return res.status(400).json({ error: error.message });
     if (error instanceof z.ZodError) return res.status(400).json({ error: error.flatten() });
     if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
-    console.error(error);
+    console.error(error?.message || error);
     res.status(500).json({ error: "Internal server error: " + error.message });
   }
 });
