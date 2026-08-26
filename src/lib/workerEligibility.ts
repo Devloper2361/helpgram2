@@ -29,7 +29,7 @@ export interface EligibilityResult {
 
 export const DEFAULT_SERVICE_RADIUS_KM = 20;
 
-function calculateDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+export function calculateDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   if (!isFinite(lat1) || !isFinite(lng1) || !isFinite(lat2) || !isFinite(lng2)) return Infinity;
   if (Math.abs(lat1) > 90 || Math.abs(lat2) > 90 || Math.abs(lng1) > 180 || Math.abs(lng2) > 180) return Infinity;
 
@@ -58,7 +58,7 @@ export async function checkWorkerEligibility(
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
-      profile: { include: { skills: true } },
+      profile: { include: { skills: true, certifications: true } },
       societyMemberships: {
         where: { status: MembershipStatus.ACTIVE },
         include: { society: true }
@@ -120,11 +120,19 @@ export async function checkWorkerEligibility(
     return { eligible: false, reason: "CROSS_FEDERATION", missingSkills: [] };
   }
 
-  const userSkillIds = new Set(user.profile?.skills.map((s) => s.id) || []);
+  const now = new Date();
+  const validCertificationSkillIds = new Set(
+    user.profile?.certifications
+      ?.filter(cert => 
+        cert.status === VerificationStatus.VERIFIED && 
+        (cert.expiresAt === null || new Date(cert.expiresAt) > now)
+      )
+      .map(cert => cert.skillId) || []
+  );
 
   const missingSkills: string[] = [];
   for (const requiredSkill of service.skills) {
-    if (!userSkillIds.has(requiredSkill.id)) {
+    if (!validCertificationSkillIds.has(requiredSkill.id)) {
       missingSkills.push(requiredSkill.name);
     }
   }

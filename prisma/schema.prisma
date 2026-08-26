@@ -6,56 +6,26 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url = "file:./dev.db"
+  url      = "file:./dev.db"
 }
 
 // -----------------------------------------------------------------------------
 // ENUMS
 // -----------------------------------------------------------------------------
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 model PayoutMethod {
-  id                String           @id @default(uuid()) 
-  userId            String           
-  type String
+  id                String   @id @default(uuid())
+  userId            String
+  type              String
   upiId             String?
   accountHolderName String?
   accountNumber     String?
   ifscCode          String?
-  isDefault         Boolean          @default(false)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  isDefault         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -65,10 +35,10 @@ model PayoutMethod {
 // -----------------------------------------------------------------------------
 
 model User {
-  id           String   @id @default(uuid()) 
+  id           String   @id @default(uuid())
   email        String   @unique
   passwordHash String
-  role String @default("USER")
+  role         String   @default("USER")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -84,9 +54,9 @@ model User {
 
   applications TaskApplication[]
 
-  givenReviews    Review[] @relation("GivenReviews")
+  givenReviews           Review[]        @relation("GivenReviews")
   verifiedCertifications Certification[] @relation("VerifiedCertifications")
-  receivedReviews Review[] @relation("ReceivedReviews")
+  receivedReviews        Review[]        @relation("ReceivedReviews")
 
   notifications Notification[]
   sentMessages  Message[]      @relation("SentMessages")
@@ -94,12 +64,12 @@ model User {
   messageThreadsAsRequester MessageThread[] @relation("RequesterThreads")
   messageThreadsAsTasker    MessageThread[] @relation("TaskerThreads")
 
-  raisedDisputes Dispute[]      @relation("DisputesRaised")
-  welfareProfile WorkerWelfareProfile?
-  welfareClaims WelfareClaim[]
-  adminLogs      AdminLog[]     @relation("AdminLogs")
-  cancellations  Cancellation[]
-  payoutMethods  PayoutMethod[]
+  raisedDisputes        Dispute[]              @relation("DisputesRaised")
+  welfareProfile        WorkerWelfareProfile?
+  welfareClaims         WelfareClaim[]
+  adminLogs             AdminLog[]             @relation("AdminLogs")
+  cancellations         Cancellation[]
+  payoutMethods         PayoutMethod[]
   federationMemberships FederationMembership[]
   societyMemberships    SocietyMembership[]
 
@@ -107,22 +77,22 @@ model User {
 }
 
 model Profile {
-  id          String   @id @default(uuid()) 
-  userId      String   @unique 
-  customerType String @default("HOUSEHOLD")
-  fullName    String?
-  bio         String?
-  avatarUrl   String?
-  locationLat Float?
-  locationLng Float?
-  trustScore  Float  @default(0.0) 
-  isVerified  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  customerType String   @default("HOUSEHOLD")
+  fullName     String?
+  bio          String?
+  avatarUrl    String?
+  locationLat  Float?
+  locationLng  Float?
+  trustScore   Float    @default(0.0)
+  isVerified   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  skills      Skill[]
-  userMetrics UserMetrics?
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills         Skill[]
+  userMetrics    UserMetrics?
   certifications Certification[]
 
   // Spatial search optimization (PostGIS placeholder for latency optimization)
@@ -131,8 +101,8 @@ model Profile {
 }
 
 model Device {
-  id         String   @id @default(uuid()) 
-  userId     String   
+  id         String   @id @default(uuid())
+  userId     String
   pushToken  String   @unique
   deviceType String?
   createdAt  DateTime @default(now())
@@ -144,8 +114,8 @@ model Device {
 }
 
 model Session {
-  id           String   @id @default(uuid()) 
-  userId       String   
+  id           String   @id @default(uuid())
+  userId       String
   sessionToken String   @unique
   expiresAt    DateTime
   createdAt    DateTime @default(now())
@@ -157,20 +127,20 @@ model Session {
 }
 
 model Skill {
-  id   String @id @default(uuid()) 
+  id   String @id @default(uuid())
   name String @unique
 
-  profiles Profile[]
-  tasks    TaskSkill[]
-  services Service[]
+  profiles       Profile[]
+  tasks          TaskSkill[]
+  services       Service[]
   certifications Certification[]
 
   @@index([name])
 }
 
 model TaskSkill {
-  taskId  String 
-  skillId String 
+  taskId  String
+  skillId String
 
   task  Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
   skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
@@ -180,16 +150,20 @@ model TaskSkill {
 }
 
 model Task {
-  id           String     @id @default(uuid()) 
-  requesterId  String     
-  taskerId     String?    
-  serviceId    String?    
-  title        String
-  description  String
+  id          String  @id @default(uuid())
+  requesterId String
+  taskerId    String?
+  serviceId   String?
+  title       String
+  description String
   // Precision adjusted to prevent monetary rounding errors during percentile fee maths
-  price        Float    
-  status String @default("OPEN")
-  version      Int        @default(1)
+  price       Float
+  status      String  @default("OPEN")
+
+  taskType     String  @default("HOUSEHOLD")
+  parentTaskId String?
+
+  version      Int      @default(1)
   scheduledFor DateTime
   locationLat  Float
   locationLng  Float
@@ -198,11 +172,11 @@ model Task {
   city         String?
   state        String?
   category     String?
-  isEmergency  Boolean    @default(false)
-  
-  startedAt    DateTime?
-  completedAt  DateTime?
-  cancelledAt  DateTime?
+  isEmergency  Boolean  @default(false)
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  cancelledAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -220,6 +194,9 @@ model Task {
   dispute       Dispute?
   cancellations Cancellation[]
 
+  parentTask Task?  @relation("SubTasks", fields: [parentTaskId], references: [id])
+  subTasks   Task[] @relation("SubTasks")
+
   // Real-time querying indices 
   @@index([status, scheduledFor])
   @@index([locationLat, locationLng], name: "task_location_idx") // B-Tree mapping for geo-bounding radius
@@ -229,9 +206,9 @@ model Task {
 }
 
 model TaskApplication {
-  id        String   @id @default(uuid()) 
-  taskId    String   
-  taskerId  String   
+  id        String   @id @default(uuid())
+  taskId    String
+  taskerId  String
   message   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -244,13 +221,13 @@ model TaskApplication {
 }
 
 model Wallet {
-  id               String   @id @default(uuid()) 
-  userId           String   @unique 
+  id               String   @id @default(uuid())
+  userId           String   @unique
   stripeAccountId  String?  @unique
   // Financial fields must be 12, 4 to support micro-cents and standard accounting precision
-  balanceAvailable Float  @default(0.0) 
-  balanceEscrowed  Float  @default(0.0) 
-  currency         String   @default("USD") 
+  balanceAvailable Float    @default(0.0)
+  balanceEscrowed  Float    @default(0.0)
+  currency         String   @default("USD")
   version          Int      @default(1)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -260,29 +237,29 @@ model Wallet {
 }
 
 model Transaction {
-  id              String            @id @default(uuid()) 
-  walletId        String            
-  taskId          String?           
-  escrowEntryId   String?           
-  amount          Float           
-  balanceAfter    Float?          
-  type String
-  status String @default("PENDING")
-  description     String?
+  id                String   @id @default(uuid())
+  walletId          String
+  taskId            String?
+  escrowEntryId     String?
+  amount            Float
+  balanceAfter      Float?
+  type              String
+  status            String   @default("PENDING")
+  description       String?
   // Required idempotency key to prevent double charging on webhook retries
-  idempotencyKey   String?           @unique
-  stripePaymentId  String?           @unique
-  stripeTransferId String?           @unique
-  razorpayOrderId  String?           @unique
-  razorpayPaymentId String?          @unique
-  razorpayPayoutId  String?          @unique
-  metadata         String?             // Unstructured log for raw hooks
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  idempotencyKey    String?  @unique
+  stripePaymentId   String?  @unique
+  stripeTransferId  String?  @unique
+  razorpayOrderId   String?  @unique
+  razorpayPaymentId String?  @unique
+  razorpayPayoutId  String?  @unique
+  metadata          String? // Unstructured log for raw hooks
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   // Relationships
-  wallet      Wallet       @relation(fields: [walletId], references: [id], onDelete: Restrict)
-  escrowEntry EscrowEntry? @relation(fields: [escrowEntryId], references: [id], onDelete: SetNull)
+  wallet          Wallet           @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  escrowEntry     EscrowEntry?     @relation(fields: [escrowEntryId], references: [id], onDelete: SetNull)
   platformRevenue PlatformRevenue?
 
   // Critical indexes for wallet ledger derivation
@@ -292,43 +269,43 @@ model Transaction {
 }
 
 model EscrowEntry {
-  id        String       @id @default(uuid()) 
-  taskId    String       @unique 
-  amount    Float      
-  status String @default("LOCKED")
-  version   Int          @default(1)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id        String   @id @default(uuid())
+  taskId    String   @unique
+  amount    Float
+  status    String   @default("LOCKED")
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   task         Task          @relation(fields: [taskId], references: [id], onDelete: Restrict)
   transactions Transaction[] // An escrow has multiple transactions (lock, release, refund, fee)
-  
+
   @@index([status])
 }
 
 model PlatformRevenue {
-  id            String   @id @default(uuid()) 
-  taskId        String?  @unique 
-  transactionId String?  @unique 
-  amount        Float  
+  id            String   @id @default(uuid())
+  taskId        String?  @unique
+  transactionId String?  @unique
+  amount        Float
   description   String?
   createdAt     DateTime @default(now())
 
-  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
 }
 
 model Review {
-  id         String     @id @default(uuid()) 
-  taskId     String     
-  reviewerId String     
-  revieweeId String     
-  type String
-  rating     Int         // 1-5 Scale, stored as SmallInt for perf
+  id         String   @id @default(uuid())
+  taskId     String
+  reviewerId String
+  revieweeId String
+  type       String
+  rating     Int // 1-5 Scale, stored as SmallInt for perf
   comment    String?
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   task     Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
   reviewer User @relation("GivenReviews", fields: [reviewerId], references: [id], onDelete: Restrict)
@@ -339,27 +316,27 @@ model Review {
 }
 
 model UserMetrics {
-  id                   String   @id @default(uuid()) 
-  profileId            String   @unique 
+  id                   String   @id @default(uuid())
+  profileId            String   @unique
   tasksCompleted       Int      @default(0)
   tasksCancelled       Int      @default(0)
-  totalEarned          Float  @default(0.0) 
-  totalSpent           Float  @default(0.0) 
-  avgRatingAsTasker    Float  @default(0.0) 
-  avgRatingAsRequester Float  @default(0.0) 
+  totalEarned          Float    @default(0.0)
+  totalSpent           Float    @default(0.0)
+  avgRatingAsTasker    Float    @default(0.0)
+  avgRatingAsRequester Float    @default(0.0)
   updatedAt            DateTime @updatedAt
 
   profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 }
 
 model Notification {
-  id              String           @id @default(uuid()) 
-  userId          String           
-  type String
+  id              String   @id @default(uuid())
+  userId          String
+  type            String
   content         String
-  relatedEntityId String?           // IDs referencing tasks, disputes, messages
-  isRead          Boolean          @default(false)
-  createdAt       DateTime         @default(now())
+  relatedEntityId String? // IDs referencing tasks, disputes, messages
+  isRead          Boolean  @default(false)
+  createdAt       DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -367,10 +344,10 @@ model Notification {
 }
 
 model MessageThread {
-  id          String   @id @default(uuid()) 
-  taskId      String   @unique 
-  requesterId String   
-  taskerId    String   
+  id          String   @id @default(uuid())
+  taskId      String   @unique
+  requesterId String
+  taskerId    String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -388,13 +365,13 @@ model MessageThread {
 }
 
 model Message {
-  id        String      @id @default(uuid()) 
-  threadId  String      
-  senderId  String      
+  id        String   @id @default(uuid())
+  threadId  String
+  senderId  String
   content   String
-  type String @default("TEXT")
-  isRead    Boolean     @default(false)
-  createdAt DateTime    @default(now())
+  type      String   @default("TEXT")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
 
   thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   sender User          @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
@@ -403,74 +380,74 @@ model Message {
 }
 
 model MediaAttachment {
-  id         String   @id @default(uuid()) 
-  taskId     String   
+  id         String   @id @default(uuid())
+  taskId     String
   url        String
   fileType   String
-  uploadedBy String   
+  uploadedBy String
   createdAt  DateTime @default(now())
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  
+
   @@index([taskId])
 }
 
 model Dispute {
-  id         String        @id @default(uuid()) 
-  taskId     String        @unique 
-  raisedById String        
+  id         String   @id @default(uuid())
+  taskId     String   @unique
+  raisedById String
   reason     String
-  status String @default("PENDING_REVIEW")
+  status     String   @default("PENDING_REVIEW")
   resolution String?
-  version    Int           @default(1)
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  version    Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   task     Task @relation(fields: [taskId], references: [id], onDelete: Restrict)
   raisedBy User @relation("DisputesRaised", fields: [raisedById], references: [id], onDelete: Restrict)
-  
+
   @@index([status])
 }
 
 model AdminLog {
-  id         String   @id @default(uuid()) 
-  adminId    String   
+  id         String   @id @default(uuid())
+  adminId    String
   action     String
   entityType String
-  entityId   String   
-  details    String?    // Use JSON to capture structured exact before/after state
+  entityId   String
+  details    String? // Use JSON to capture structured exact before/after state
   createdAt  DateTime @default(now())
 
-  admin      User     @relation("AdminLogs", fields: [adminId], references: [id], onDelete: Restrict)
+  admin User @relation("AdminLogs", fields: [adminId], references: [id], onDelete: Restrict)
 
   @@index([entityType, entityId])
 }
 
 model Cancellation {
-  id             String   @id @default(uuid()) 
-  taskId         String   
-  userId         String   
+  id             String   @id @default(uuid())
+  taskId         String
+  userId         String
   reason         String
   penaltyApplied Boolean  @default(false)
   createdAt      DateTime @default(now())
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Restrict)
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
-  
+
   @@index([taskId])
   @@index([userId])
 }
 
 model KYCVerification {
-  id           String             @id @default(uuid()) 
-  userId       String             @unique 
-  providerKey  String?            @unique // Connects external Persona/Jumio ref
-  status String @default("UNVERIFIED")
+  id           String    @id @default(uuid())
+  userId       String    @unique
+  providerKey  String?   @unique // Connects external Persona/Jumio ref
+  status       String    @default("UNVERIFIED")
   documentsUrl String?
   notes        String?
   submittedAt  DateTime?
   verifiedAt   DateTime?
-  updatedAt    DateTime           @updatedAt
+  updatedAt    DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -478,51 +455,53 @@ model KYCVerification {
 }
 
 model JobLock {
-  id        String   @id
-  lockedAt  DateTime
+  id       String   @id
+  lockedAt DateTime
 }
 
 model CooperativeFederation {
-  id          String   @id @default(uuid()) 
+  id          String   @id @default(uuid())
   name        String   @unique
   description String?
   state       String?
-  status String @default("ACTIVE")
+  status      String   @default("ACTIVE")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   societies         CooperativeSociety[]
   memberships       FederationMembership[]
+  opportunities     InstitutionalOpportunity[]
   serviceCategories ServiceCategory[]
 }
 
 model CooperativeSociety {
-  id           String   @id @default(uuid()) 
-  federationId String   
+  id           String   @id @default(uuid())
+  federationId String
   name         String
   description  String?
   location     String?
-  status String @default("ACTIVE")
+  status       String   @default("ACTIVE")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  federation   CooperativeFederation @relation(fields: [federationId], references: [id], onDelete: Restrict)
-  memberships  SocietyMembership[]
-  
+  federation               CooperativeFederation      @relation(fields: [federationId], references: [id], onDelete: Restrict)
+  memberships              SocietyMembership[]
+  InstitutionalOpportunity InstitutionalOpportunity[]
+
   @@index([federationId])
 }
 
 model FederationMembership {
-  id           String   @id @default(uuid()) 
-  userId       String   
-  federationId String   
-  role String @default("MEMBER")
-  status String @default("PENDING")
+  id           String   @id @default(uuid())
+  userId       String
+  federationId String
+  role         String   @default("MEMBER")
+  status       String   @default("PENDING")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  federation   CooperativeFederation @relation(fields: [federationId], references: [id], onDelete: Cascade)
+  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  federation CooperativeFederation @relation(fields: [federationId], references: [id], onDelete: Cascade)
 
   @@unique([userId, federationId])
   @@index([userId])
@@ -530,16 +509,16 @@ model FederationMembership {
 }
 
 model SocietyMembership {
-  id           String   @id @default(uuid()) 
-  userId       String   
-  societyId    String   
-  role String @default("MEMBER")
-  status String @default("PENDING")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String   @id @default(uuid())
+  userId    String
+  societyId String
+  role      String   @default("MEMBER")
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  society      CooperativeSociety @relation(fields: [societyId], references: [id], onDelete: Cascade)
+  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  society CooperativeSociety @relation(fields: [societyId], references: [id], onDelete: Cascade)
 
   @@unique([userId, societyId])
   @@index([userId])
@@ -547,84 +526,106 @@ model SocietyMembership {
 }
 
 model ServiceCategory {
-  id           String                @id @default(uuid()) 
-  federationId String                
+  id           String   @id @default(uuid())
+  federationId String
   name         String
   description  String?
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  federation   CooperativeFederation @relation(fields: [federationId], references: [id], onDelete: Cascade)
-  services     Service[]
+  federation    CooperativeFederation      @relation(fields: [federationId], references: [id], onDelete: Cascade)
+  services      Service[]
+  opportunities InstitutionalOpportunity[]
 
   @@unique([federationId, name])
   @@index([federationId])
 }
 
 model Service {
-  id           String          @id @default(uuid()) 
-  categoryId   String          
-  name         String
-  description  String
-  basePrice    Float         
-  status       String          @default("ACTIVE")
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id          String   @id @default(uuid())
+  categoryId  String
+  name        String
+  description String
+  basePrice   Float
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  category     ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  tasks        Task[]
-  skills       Skill[]
+  category ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  tasks    Task[]
+  skills   Skill[]
 
   @@unique([categoryId, name])
   @@index([categoryId])
 }
 
 model Certification {
-  id         String             @id @default(uuid()) 
-  profileId  String             
-  skillId    String             
-  status String @default("PENDING")
-  evidence   String?
-  verifiedById String?          
-  verifiedAt DateTime?
-  expiresAt  DateTime?
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
+  id           String    @id @default(uuid())
+  profileId    String
+  skillId      String
+  status       String    @default("PENDING")
+  evidence     String?
+  verifiedById String?
+  verifiedAt   DateTime?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  profile    Profile            @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  skill      Skill              @relation(fields: [skillId], references: [id], onDelete: Cascade)
-  verifiedBy User?              @relation("VerifiedCertifications", fields: [verifiedById], references: [id])
+  profile    Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  skill      Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  verifiedBy User?   @relation("VerifiedCertifications", fields: [verifiedById], references: [id])
 
   @@unique([profileId, skillId])
 }
 
-
-
-
 model WorkerWelfareProfile {
-  id             String    @id @default(uuid()) 
-  workerId       String    @unique 
+  id             String    @id @default(uuid())
+  workerId       String    @unique
   isCovered      Boolean   @default(false)
   coverageType   String?
-  coverageAmount Float?  
+  coverageAmount Float?
   validUntil     DateTime?
   policyNumber   String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  worker         User      @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  worker User @relation(fields: [workerId], references: [id], onDelete: Cascade)
 }
 
 model WelfareClaim {
-  id                  String      @id @default(uuid()) 
-  workerId            String      
-  title               String
-  description         String
-  status String @default("PENDING")
-  incidentDate        DateTime?
+  id                    String    @id @default(uuid())
+  workerId              String
+  title                 String
+  description           String
+  status                String    @default("PENDING")
+  incidentDate          DateTime?
   supportingDocumentUrl String?
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  worker              User        @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  worker User @relation(fields: [workerId], references: [id], onDelete: Cascade)
+}
+
+model InstitutionalOpportunity {
+  id          String    @id @default(uuid())
+  title       String
+  description String
+  source      String?
+  externalRef String?
+  budget      Float?
+  locationLat Float?
+  locationLng Float?
+  deadline    DateTime?
+  status      String    @default("DRAFT")
+
+  societyId    String?
+  federationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  society           CooperativeSociety?    @relation(fields: [societyId], references: [id])
+  federation        CooperativeFederation? @relation(fields: [federationId], references: [id])
+  ServiceCategory   ServiceCategory?       @relation(fields: [serviceCategoryId], references: [id])
+  serviceCategoryId String?
 }

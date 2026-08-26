@@ -1,6 +1,6 @@
 {
   "name": "HelpGram",
-  "description": "A local micro-help marketplace connecting requesters and taskers with integrated escrow, wallet, chat, and reviews.",
+  "description": "Cooperative Gig Services Platform for Household & Community Services with verified workers, escrow payments, welfare protections, and federation governance.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

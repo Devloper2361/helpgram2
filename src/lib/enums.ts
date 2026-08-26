@@ -112,3 +112,10 @@ export const EscrowStatus = {
   DISPUTED: "DISPUTED"
 } as const;
 export type EscrowStatus = keyof typeof EscrowStatus;
+
+export const TaskType = {
+  HOUSEHOLD: "HOUSEHOLD",
+  INSTITUTIONAL_PARENT: "INSTITUTIONAL_PARENT",
+  INSTITUTIONAL_SUB: "INSTITUTIONAL_SUB"
+} as const;
+export type TaskType = keyof typeof TaskType;

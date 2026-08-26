@@ -1,81 +1,205 @@
-import { useTranslation } from "../i18n";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { useTranslation } from "../i18n";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Calendar, DollarSign, User, ShieldCheck, Mail, CheckCircle2 } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import {
+  MapPin,
+  Calendar,
+  DollarSign,
+  ShieldCheck,
+  ShieldAlert,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  ArrowLeft,
+  MessageSquare,
+  FileText,
+  Star,
+  Camera,
+  Upload,
+  User,
+  Users,
+  ChevronRight,
+  Sparkles,
+  Info,
+  X,
+  AlertCircle,
+  Lock,
+  Eye,
+  Check,
+  Building2,
+  Compass
+} from "lucide-react";
 import { MapProvider } from "@/components/MapProvider";
 import { LocationPicker } from "@/components/LocationPicker";
+import { StatusBadge } from "../components/StatusBadge";
+import {
+  VerifiedWorkerBadge,
+  SocietyMemberBadge,
+  EscrowProtectedBadge,
+  TrustScoreBadge,
+  CooperativeShield
+} from "../components/TrustIndicators";
+import { Map, AdvancedMarker, Pin } from "@vis.gl/react-google-maps";
 
 export default function TaskDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
+
+  // Core Data States
   const [task, setTask] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [applications, setApplications] = useState<any[]>([]);
-  const [isEditing, setIsEditing] = useState(false);
-  const [applyMessage, setApplyMessage] = useState("");
-  const [isApplying, setIsApplying] = useState(false);
-  const [service, setService] = useState<any>(null);
   const [workerProfile, setWorkerProfile] = useState<any>(null);
+  const [service, setService] = useState<any>(null);
+  const [applications, setApplications] = useState<any[]>([]);
+
+  // Workflow / UI States
+  const [isEditing, setIsEditing] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
+  const [applyMessage, setApplyMessage] = useState("");
   const [applyError, setApplyError] = useState<any>(null);
-  const [editForm, setEditForm] = useState({
-    title: "", description: "", price: "", scheduledFor: "", locationLat: 0, locationLng: 0, address: "", landmark: "", city: "", state: "", category: ""
+  const [isSubmittingApply, setIsSubmittingApply] = useState(false);
+
+  const [isSelectingHelper, setIsSelectingHelper] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  // Proof submission
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreviewUrl, setProofPreviewUrl] = useState<string | null>(null);
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [selectedMediaPreview, setSelectedMediaPreview] = useState<string | null>(null);
+
+  // Dispute & Review states
+  const [isDisputing, setIsDisputing] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [isSubmittingDispute, setIsSubmittingDispute] = useState(false);
+
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  // Confirmation modal states
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText: string;
+    variant: "default" | "destructive" | "success";
+    onConfirm: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    confirmText: "",
+    variant: "default",
+    onConfirm: async () => {},
   });
 
+  // Edit form state
+  const [editForm, setEditForm] = useState({
+    title: "",
+    description: "",
+    scheduledFor: "",
+    locationLat: 0,
+    locationLng: 0,
+    address: "",
+    landmark: "",
+    city: "",
+    state: "",
+    category: ""
+  });
+
+  // Initial user & task loading
   useEffect(() => {
-    fetch("/api/auth/me").then(r => r.json()).then(d => {
-      if (d.user) {
-        setCurrentUser(d.user);
-        if (d.user.role === 'WORKER') {
-          fetch("/api/profile/me").then(r => r.ok ? r.json() : null).then(pd => {
-            if (pd && pd.profile) setWorkerProfile(pd.profile);
-          }).catch(() => {});
-        }
-      }
-    }).catch(() => {});
+    fetchCurrentUser();
     fetchTask();
   }, [id]);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (res.ok) {
+        const d = await res.json();
+        if (d.user) {
+          setCurrentUser(d.user);
+          if (d.user.role === "WORKER") {
+            fetchWorkerProfile();
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchWorkerProfile = async () => {
+    try {
+      const res = await fetch("/api/profile/me");
+      if (res.ok) {
+        const pd = await res.json();
+        if (pd && pd.profile) {
+          setWorkerProfile(pd.profile);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchTask = async () => {
     try {
       const res = await fetch(`/api/tasks/${id}`);
       if (res.ok) {
         const payload = await res.json();
-        setTask(payload.task);
-        if (payload.task) {
-           if (payload.task.serviceId) {
-             fetch(`/api/services/${payload.task.serviceId}`).then(r => r.ok ? r.json() : null).then(d => {
-               if (d && d.service) setService(d.service);
-             }).catch(() => {});
-           }
-           setEditForm({
-             title: payload.task.title,
-             description: payload.task.description,
-             price: payload.task.price,
-             scheduledFor: new Date(payload.task.scheduledFor).toISOString().slice(0, 16),
-             locationLat: payload.task.locationLat,
-             locationLng: payload.task.locationLng,
-             address: payload.task.address || "",
-             landmark: payload.task.landmark || "",
-             city: payload.task.city || "",
-             state: payload.task.state || "",
-             category: payload.task.category || ""
-           });
-        }
-        if (currentUser) {
-           fetchApplications();
+        const tData = payload.task;
+        setTask(tData);
+
+        if (tData) {
+          if (tData.serviceId) {
+            fetchService(tData.serviceId);
+          }
+          setEditForm({
+            title: tData.title || "",
+            description: tData.description || "",
+            scheduledFor: tData.scheduledFor ? new Date(tData.scheduledFor).toISOString().slice(0, 16) : "",
+            locationLat: Number(tData.locationLat) || 0,
+            locationLng: Number(tData.locationLng) || 0,
+            address: tData.address || "",
+            landmark: tData.landmark || "",
+            city: tData.city || "",
+            state: tData.state || "",
+            category: tData.category || ""
+          });
+
+          // Fetch applications if open
+          fetchApplications();
         }
       }
     } catch (e) {
-      console.log(e);
+      console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchService = async (serviceId: string) => {
+    try {
+      const res = await fetch(`/api/services/${serviceId}`);
+      if (res.ok) {
+        const d = await res.json();
+        if (d && d.service) setService(d.service);
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -84,85 +208,244 @@ export default function TaskDetailPage() {
       const res = await fetch(`/api/tasks/${id}/applications`);
       if (res.ok) {
         const data = await res.json();
-        setApplications(data.applications);
+        setApplications(data.applications || []);
       }
-    } catch (e) {}
-  }
-
-  // Refetch apps if currentUser resolves late and is owner
-  useEffect(() => {
-    if (currentUser?.id && task?.id && task.status === "OPEN") {
-      fetchApplications();
+    } catch (e) {
+      console.error(e);
     }
-  }, [currentUser, task?.id]);
+  };
 
+  // Roles & Permissions
   const isOwner = currentUser?.id === task?.requesterId;
   const isHelper = currentUser?.id === task?.taskerId;
-  const canEditOrCancel = isOwner && task?.status === "OPEN";
+  const isWorkerRole = currentUser?.role === "WORKER";
+  const hasApplied = applications.some((a) => a.taskerId === currentUser?.id);
+  const canEdit = isOwner && task?.status === "OPEN";
+  const canCancel = isOwner && (task?.status === "OPEN" || task?.status === "ACCEPTED" || task?.status === "IN_PROGRESS" || task?.status === "PROOF_SUBMITTED");
 
-  const handleUpdate = async (e: React.FormEvent) => {
+  // Handler: Update Task (Edit Mode)
+  const handleUpdateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const res = await fetch(`/api/tasks/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...editForm,
-          price: parseFloat(editForm.price as any),
+          title: editForm.title,
+          description: editForm.description,
+          scheduledFor: new Date(editForm.scheduledFor).toISOString(),
           locationLat: editForm.locationLat,
           locationLng: editForm.locationLng,
-          scheduledFor: new Date(editForm.scheduledFor).toISOString()
+          address: editForm.address,
+          landmark: editForm.landmark,
+          city: editForm.city,
+          state: editForm.state,
+          category: editForm.category
         })
       });
       if (res.ok) {
-        const data = await res.json();
-        setTask({ ...task, ...data.task });
+        toast.success("Task updated successfully!");
         setIsEditing(false);
+        fetchTask();
+      } else {
+        const data = await res.json();
+        toast.error(typeof data.error === "string" ? data.error : JSON.stringify(data.error));
       }
-    } catch (e) {}
+    } catch (e) {
+      toast.error("Failed to update task");
+    }
   };
 
-  const handleCancel = async () => {
-    
+  // Handler: Cancel Task
+  const executeCancelTask = async () => {
+    setIsCancelling(true);
     try {
-      const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
-      if (res.ok) fetchTask();
-    } catch (e) {}
+      const res = await fetch(`/api/tasks/${id}/cancel`, { method: "POST" });
+      if (res.ok) {
+        toast.success("Booking cancelled successfully.");
+        fetchTask();
+      } else {
+        const data = await res.json();
+        toast.error(typeof data.error === "string" ? data.error : (data.error?.message || "Failed to cancel booking"));
+      }
+    } catch (e) {
+      toast.error("An error occurred while cancelling the task");
+    } finally {
+      setIsCancelling(false);
+      setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+    }
   };
 
-  const [isReviewing, setIsReviewing] = useState(false);
-  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
-  const [isDisputing, setIsDisputing] = useState(false);
-  const [disputeForm, setDisputeForm] = useState({ reason: "" });
-  const [evidenceUrl, setEvidenceUrl] = useState("");
+  // Handler: Worker Apply
+  const handleApply = async () => {
+    if (!currentUser) {
+      toast.error("Please sign in to apply for this task");
+      navigate("/auth/login");
+      return;
+    }
+    setApplyError(null);
+    setIsSubmittingApply(true);
+    try {
+      const res = await fetch(`/api/tasks/${id}/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: applyMessage.trim() || undefined })
+      });
+      if (res.ok) {
+        toast.success("Application submitted successfully!");
+        setIsApplying(false);
+        setApplyMessage("");
+        fetchTask();
+      } else {
+        const data = await res.json();
+        if (res.status === 403) {
+          setApplyError(data);
+        } else {
+          toast.error(typeof data.error === "string" ? data.error : (data.error?.message || "Failed to apply"));
+        }
+      }
+    } catch (e) {
+      toast.error("Failed to submit application");
+    } finally {
+      setIsSubmittingApply(false);
+    }
+  };
 
+  // Handler: Select Helper
+  const handleSelectHelper = async (taskerId: string) => {
+    setIsSelectingHelper(taskerId);
+    try {
+      const res = await fetch(`/api/tasks/${id}/select-helper`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskerId })
+      });
+      if (res.ok) {
+        toast.success("Worker selected and escrow funds secured!");
+        fetchTask();
+      } else {
+        const d = await res.json();
+        toast.error(typeof d.error === "string" ? d.error : (d.error?.message || "Failed to select worker"));
+      }
+    } catch (e) {
+      toast.error("Failed to select worker");
+    } finally {
+      setIsSelectingHelper(null);
+      setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+    }
+  };
+
+  // Handler: Worker Start Task
+  const executeStartTask = async () => {
+    setIsStarting(true);
+    try {
+      const res = await fetch(`/api/tasks/${id}/start`, { method: "POST" });
+      if (res.ok) {
+        toast.success("Task marked as in progress!");
+        fetchTask();
+      } else {
+        const data = await res.json();
+        toast.error(typeof data.error === "string" ? data.error : (data.error?.message || "Failed to start task"));
+      }
+    } catch (e) {
+      toast.error("Failed to start task");
+    } finally {
+      setIsStarting(false);
+      setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+    }
+  };
+
+  // Handler: Worker Submit Proof
+  const handleProofFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setProofFile(file);
+      const url = URL.createObjectURL(file);
+      setProofPreviewUrl(url);
+    }
+  };
+
+  const handleUploadProof = async () => {
+    if (!proofFile) {
+      toast.error("Please select a photo evidence file");
+      return;
+    }
+    setIsUploadingProof(true);
+    const formData = new FormData();
+    formData.append("evidence", proofFile);
+    try {
+      const res = await fetch(`/api/tasks/${id}/submit-proof`, {
+        method: "POST",
+        body: formData
+      });
+      if (res.ok) {
+        toast.success("Proof of work uploaded! Awaiting customer review.");
+        setProofFile(null);
+        setProofPreviewUrl(null);
+        fetchTask();
+      } else {
+        const d = await res.json();
+        toast.error(typeof d.error === "string" ? d.error : (d.error?.message || "Failed to submit proof"));
+      }
+    } catch (e) {
+      toast.error("Error uploading proof");
+    } finally {
+      setIsUploadingProof(false);
+    }
+  };
+
+  // Handler: Customer Approve Completion
+  const executeApproveCompletion = async () => {
+    setIsApproving(true);
+    try {
+      const res = await fetch(`/api/tasks/${id}/approve`, { method: "POST" });
+      if (res.ok) {
+        toast.success("Booking completed and payment released to worker!");
+        fetchTask();
+      } else {
+        const data = await res.json();
+        toast.error(typeof data.error === "string" ? data.error : (data.error?.message || "Failed to approve completion"));
+      }
+    } catch (e) {
+      toast.error("Failed to approve completion");
+    } finally {
+      setIsApproving(false);
+      setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+    }
+  };
+
+  // Handler: Submit Dispute
   const handleDispute = async () => {
+    if (disputeReason.trim().length < 10) {
+      toast.error("Please enter a detailed reason for the dispute (at least 10 characters)");
+      return;
+    }
+    setIsSubmittingDispute(true);
     try {
       const res = await fetch(`/api/tasks/${id}/dispute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(disputeForm)
+        body: JSON.stringify({ reason: disputeReason.trim() })
       });
       if (res.ok) {
-        const d = await res.json();
-        if (evidenceUrl) {
-          const eRes = await fetch(`/api/disputes/${d.task.dispute?.id || d.task.id}/evidence`, { // Dispute id or task id? API is /api/disputes/:id/evidence where :id is dispute ID. Since task includes dispute... Wait, create dispute doesn't return dispute directly. But we can fetch it again or send to backend. The backend is configured to use dispute id.
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url: evidenceUrl, fileType: evidenceUrl.split('.').pop() || "unknown" })
-          });
-        }
-        toast.success("Dispute submitted. Admins will review it soon.");
+        toast.success("Dispute filed. HelpGram cooperative mediators have been notified.");
         setIsDisputing(false);
+        setDisputeReason("");
         fetchTask();
       } else {
         const data = await res.json();
-        toast.error(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error)));
+        toast.error(typeof data.error === "string" ? data.error : (data.error?.message || "Failed to submit dispute"));
       }
-    } catch(e) {}
+    } catch (e) {
+      toast.error("Failed to submit dispute");
+    } finally {
+      setIsSubmittingDispute(false);
+    }
   };
 
+  // Handler: Submit Review
   const handleReview = async () => {
+    setIsSubmittingReview(true);
     try {
       const res = await fetch(`/api/tasks/${id}/review`, {
         method: "POST",
@@ -170,533 +453,1523 @@ export default function TaskDetailPage() {
         body: JSON.stringify(reviewForm)
       });
       if (res.ok) {
-        toast.success("Review submitted!");
+        toast.success("Review submitted! Thank you for strengthening community trust.");
         setIsReviewing(false);
         fetchTask();
       } else {
         const data = await res.json();
-        toast.error(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error)));
+        toast.error(typeof data.error === "string" ? data.error : (data.error?.message || "Failed to submit review"));
       }
-    } catch (e) {}
-  };
-
-  const handleApply = async () => {
-    if (!currentUser) {
-      toast.error("Please log in to apply");
-      return;
+    } catch (e) {
+      toast.error("Failed to submit review");
+    } finally {
+      setIsSubmittingReview(false);
     }
-    setApplyError(null);
-    try {
-      const res = await fetch(`/api/tasks/${id}/apply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: applyMessage })
-      });
-      if (res.ok) {
-        toast.success("Applied successfully!");
-        setIsApplying(false);
-        fetchTask();
-      } else {
-        const data = await res.json();
-        if (res.status === 403) {
-          setApplyError(data);
-        } else {
-          toast.error(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error) || "Failed to apply"));
-        }
-      }
-    } catch (e) {}
   };
 
-  const handleSelectHelper = async (taskerId: string) => {
-    console.log("handleSelectHelper called with taskerId:", taskerId);
-    console.log("Fetching /api/tasks/" + id + "/select-helper");
-    
-    try {
-      const res = await fetch(`/api/tasks/${id}/select-helper`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskerId })
-      });
-      console.log("Response status:", res.status);
-      if (res.ok) {
-        console.log("Success! Refetching task...");
-        fetchTask();
-      } else {
-        res.json().then((d: any) => {
-          console.log("Error response:", d);
-          toast.error(typeof d.error === "string" ? d.error : (d.error?.formErrors?.[0] || JSON.stringify(d.error) || "Failed to select helper"));
-        }).catch(() => toast.error("Failed to select helper"));
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto py-16 px-4 flex flex-col items-center justify-center space-y-4">
+        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-medium text-slate-600">{t("task.loading") || "Loading task details..."}</p>
+      </div>
+    );
+  }
+
+  if (!task) {
+    return (
+      <div className="max-w-3xl mx-auto py-16 px-4 text-center space-y-4">
+        <AlertCircle className="w-12 h-12 text-slate-400 mx-auto" />
+        <h2 className="text-xl font-bold text-slate-900">{t("common.noResults") || "Task Not Found"}</h2>
+        <p className="text-sm text-slate-500">The requested booking does not exist or may have been removed.</p>
+        <Button onClick={() => navigate("/tasks")} variant="outline">
+          <ArrowLeft className="w-4 h-4 mr-2" /> {t("task_detail.back_to_tasks")}
+        </Button>
+      </div>
+    );
+  }
+
+  // Lifecycle Tracker Data
+  const lifecycleSteps = [
+    {
+      key: "OPEN",
+      label: t("task_detail.step_posted"),
+      desc: t("task_detail.step_posted_desc"),
+      isCompleted: task.status !== "OPEN" && task.status !== "CANCELLED",
+      isCurrent: task.status === "OPEN",
+      icon: Users
+    },
+    {
+      key: "ACCEPTED",
+      label: t("task_detail.step_assigned"),
+      desc: t("task_detail.step_assigned_desc"),
+      isCompleted: ["IN_PROGRESS", "PROOF_SUBMITTED", "COMPLETED"].includes(task.status),
+      isCurrent: task.status === "ACCEPTED",
+      icon: User
+    },
+    {
+      key: "IN_PROGRESS",
+      label: t("task_detail.step_progress"),
+      desc: t("task_detail.step_progress_desc"),
+      isCompleted: ["PROOF_SUBMITTED", "COMPLETED"].includes(task.status),
+      isCurrent: task.status === "IN_PROGRESS",
+      icon: Clock
+    },
+    {
+      key: "PROOF_SUBMITTED",
+      label: t("task_detail.step_proof"),
+      desc: t("task_detail.step_proof_desc"),
+      isCompleted: task.status === "COMPLETED",
+      isCurrent: task.status === "PROOF_SUBMITTED",
+      icon: Camera
+    },
+    {
+      key: "COMPLETED",
+      label: t("task_detail.step_completed"),
+      desc: t("task_detail.step_completed_desc"),
+      isCompleted: task.status === "COMPLETED",
+      isCurrent: task.status === "COMPLETED",
+      icon: CheckCircle2
+    }
+  ];
+
+  // Dynamic Next-Action Guidance Message
+  const getNextActionMessage = () => {
+    if (task.status === "DISPUTED") {
+      return {
+        text: t("task_detail.action_disputed_info"),
+        variant: "dispute"
+      };
+    }
+    if (task.status === "CANCELLED") {
+      return {
+        text: t("task_detail.action_cancelled_info"),
+        variant: "cancelled"
+      };
+    }
+    if (isOwner) {
+      switch (task.status) {
+        case "OPEN":
+          return { text: t("task_detail.action_customer_open"), variant: "action" };
+        case "ACCEPTED":
+          return { text: t("task_detail.action_customer_accepted"), variant: "info" };
+        case "IN_PROGRESS":
+          return { text: t("task_detail.action_customer_in_progress"), variant: "info" };
+        case "PROOF_SUBMITTED":
+          return { text: t("task_detail.action_customer_proof"), variant: "urgent" };
+        case "COMPLETED":
+          return { text: t("task_detail.action_customer_completed"), variant: "success" };
+        default:
+          return { text: "", variant: "default" };
       }
-    } catch (e) {}
+    }
+    if (isHelper) {
+      switch (task.status) {
+        case "ACCEPTED":
+          return { text: t("task_detail.action_worker_accepted"), variant: "urgent" };
+        case "IN_PROGRESS":
+          return { text: t("task_detail.action_worker_in_progress"), variant: "action" };
+        case "PROOF_SUBMITTED":
+          return { text: t("task_detail.action_worker_proof"), variant: "info" };
+        case "COMPLETED":
+          return { text: t("task_detail.action_worker_completed"), variant: "success" };
+        default:
+          return { text: "", variant: "default" };
+      }
+    }
+    if (isWorkerRole && task.status === "OPEN") {
+      return hasApplied
+        ? { text: t("task_detail.action_worker_open_applied"), variant: "info" }
+        : { text: t("task_detail.action_worker_open_can_apply"), variant: "action" };
+    }
+    return { text: t("task_detail.action_visitor_open"), variant: "info" };
   };
 
-  const handleTransitionAction = async (actionUrl: string) => {
-    try {
-      const res = await fetch(`/api/tasks/${id}/${actionUrl}`, { method: "POST" });
-      if (res.ok) fetchTask();
-      else {
-        const data = await res.json();
-        toast.error(typeof data.error === "string" ? data.error : (data.error?.formErrors?.[0] || JSON.stringify(data.error)));
-      }
-    } catch (e) {}
-  };
-
-  if (loading) return <div className="text-center py-10">{t("ui.loading_task_details")}</div>;
-  if (!task) return <div className="text-center py-10">{t("ui.task_not_found")}</div>;
-
-  const hasApplied = applications.some(a => a.taskerId === currentUser?.id);
+  const nextAction = getNextActionMessage();
 
   return (
     <MapProvider>
-      <div className="max-w-4xl mx-auto py-8 space-y-6">
-        <div className="flex flex-col md:flex-row gap-6 justify-between items-start">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3 mb-2">
-            <Badge variant={task.status === "OPEN" ? "default" : (task.status === "COMPLETED" ? "secondary" : "default")} className="text-sm">
-              {task.status.replace("_", " ")}
-            </Badge>
-            {task.category && (
-              <Badge variant="outline" className="text-sm text-slate-600">
-                {task.category}
-              </Badge>
-            )}
-            <span className="text-sm text-slate-500">{t("ui.posted")}{new Date(task.createdAt).toLocaleDateString()}</span>
-          </div>
-          
-          <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-bold tracking-tight">{task.title}</h1>
-            {task.isEmergency && (
-              <Badge variant="destructive" className="w-fit bg-red-500 hover:bg-red-600 text-white font-bold mb-1">
-                {t("ui.emergency_service_request")}</Badge>
-            )}
+      <div className="min-h-screen bg-slate-50/50 pb-28 md:pb-16 pt-6">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-6">
+
+          {/* Navigation Breadcrumb & Quick Actions Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Link
+                to={isOwner ? "/my-tasks" : "/tasks"}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors bg-white px-3 py-1.5 rounded-lg border shadow-xs"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>{isOwner ? t("task_detail.back_to_my_tasks") : t("task_detail.back_to_tasks")}</span>
+              </Link>
+              <span className="text-slate-300">/</span>
+              <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                #{task.id.slice(0, 8)}
+              </span>
+            </div>
+
+            {/* Top Right Action Controls */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {canEdit && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditing(!isEditing)}
+                  className="border-slate-300"
+                >
+                  {isEditing ? t("task_detail.cancel_edit_btn") : t("task_detail.edit_task_btn")}
+                </Button>
+              )}
+
+              {canCancel && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setConfirmModal({
+                      isOpen: true,
+                      title: t("task_detail.cancel_confirm_title"),
+                      description: t("task_detail.cancel_confirm_desc"),
+                      confirmText: t("task_detail.cancel_task_btn"),
+                      variant: "destructive",
+                      onConfirm: executeCancelTask,
+                    })
+                  }
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                >
+                  {t("task_detail.cancel_task_btn")}
+                </Button>
+              )}
+
+              {task.taskerId && (isOwner || isHelper) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/chat")}
+                  className="border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-50"
+                >
+                  <MessageSquare className="w-4 h-4 mr-1.5" />
+                  {isOwner ? t("task_detail.chat_btn") : t("task_detail.chat_customer_btn")}
+                </Button>
+              )}
+
+              {(task.status === "COMPLETED" || task.status === "CLOSED") && (isOwner || isHelper) && (
+                <Link to={`/tasks/${task.id}/invoice`}>
+                  <Button variant="outline" size="sm" className="border-emerald-200 text-emerald-800 bg-emerald-50/50 hover:bg-emerald-50">
+                    <FileText className="w-4 h-4 mr-1.5" />
+                    {t("task_detail.view_invoice_btn")}
+                  </Button>
+                </Link>
+              )}
+
+              {(isOwner || isHelper) &&
+                ["ACCEPTED", "IN_PROGRESS", "PROOF_SUBMITTED", "COMPLETED"].includes(task.status) &&
+                !task.dispute &&
+                !isDisputing && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsDisputing(true)}
+                    className="text-slate-500 hover:text-red-600 text-xs"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5 mr-1" />
+                    {t("task_detail.dispute_btn")}
+                  </Button>
+                )}
+            </div>
           </div>
 
-          <div className="flex items-center gap-4 text-slate-600 text-sm">
-            <span className="flex items-center gap-1 font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-md"><DollarSign className="h-4 w-4" /> {task.price}</span>
-            <span className="flex items-center gap-1"><Calendar className="h-4 w-4" /> {new Date(task.scheduledFor).toLocaleString()}</span>
-            <div className="flex items-start gap-1">
-              <MapPin className="h-4 w-4 mt-0.5 shrink-0" /> 
-              <div className="flex flex-col">
-                 {task.address ? (
-                   <>
-                     <span>{task.address}{task.city ? `, ${task.city}` : ''}</span>
-                     {task.landmark && <span className="text-xs text-slate-500 font-normal">{t("ui.near")}{task.landmark}</span>}
-                   </>
-                 ) : (
-                   <span>{task.locationLat}, {task.locationLng}</span>
-                 )}
+          {/* Emergency Priority Alert Banner */}
+          {task.isEmergency && (
+            <div className="bg-red-500 text-white p-3.5 rounded-xl flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-1.5 bg-white/20 rounded-lg">
+                  <AlertTriangle className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm tracking-wide">{t("task_detail.emergency_priority")}</h4>
+                  <p className="text-xs text-red-100 opacity-90">
+                    {t("booking.emergency_toggle_desc")}
+                  </p>
+                </div>
+              </div>
+              <Badge className="bg-white text-red-700 hover:bg-white text-xs font-bold shrink-0">
+                HIGH PRIORITY
+              </Badge>
+            </div>
+          )}
+
+          {/* Main Title, Badges & Price Header Card */}
+          <Card className="bg-white border-slate-200/80 shadow-xs">
+            <CardContent className="p-5 sm:p-7">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div className="space-y-3 flex-1">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <StatusBadge status={task.status} size="default" />
+                    {task.category && (
+                      <Badge variant="outline" className="text-xs bg-slate-50 text-slate-700 border-slate-200">
+                        {task.category}
+                      </Badge>
+                    )}
+                    {service && (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                        <Sparkles className="w-3 h-3" />
+                        {service.name}
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-500">
+                      {t("ui.posted")} {new Date(task.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+
+                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 leading-tight">
+                    {task.title}
+                  </h1>
+
+                  <div className="flex items-center gap-4 text-xs sm:text-sm text-slate-600 flex-wrap">
+                    <span className="flex items-center gap-1 font-medium text-slate-700">
+                      <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+                      {new Date(task.scheduledFor).toLocaleString()}
+                    </span>
+                    <span className="text-slate-300">•</span>
+                    <span className="flex items-center gap-1 text-slate-700">
+                      <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                      {task.address ? `${task.address}${task.city ? `, ${task.city}` : ""}` : `${task.locationLat}, ${task.locationLng}`}
+                      {task.landmark && (
+                        <span className="text-slate-400">({t("ui.near")} {task.landmark})</span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Price Display Card */}
+                <div className="lg:border-l lg:border-slate-100 lg:pl-8 flex flex-row lg:flex-col items-center lg:items-end justify-between gap-2 shrink-0 bg-slate-50/70 p-4 rounded-xl lg:bg-transparent lg:p-0">
+                  <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">
+                    {t("task_detail.booking_price")}
+                  </span>
+                  <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 flex items-center gap-1">
+                    <span className="text-slate-400 font-light text-xl">₹</span>
+                    {Number(task.price).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {task.status === "COMPLETED" ? (
+                      <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-none text-[11px]">
+                        {t("status.released")}
+                      </Badge>
+                    ) : task.status === "CANCELLED" ? (
+                      <Badge className="bg-slate-200 text-slate-700 hover:bg-slate-200 border-none text-[11px]">
+                        {t("status.refunded")}
+                      </Badge>
+                    ) : task.status === "OPEN" ? (
+                      <Badge variant="outline" className="text-amber-700 bg-amber-50/60 border-amber-200 text-[11px]">
+                        {t("status.pending")}
+                      </Badge>
+                    ) : (
+                      <EscrowProtectedBadge size="sm" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lifecycle Visual Progression Tracker */}
+          {task.status !== "CANCELLED" && (
+            <Card className="bg-white border-slate-200/80 shadow-xs overflow-hidden">
+              <CardHeader className="py-4 px-5 border-b border-slate-100 bg-slate-50/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Compass className="w-4 h-4 text-blue-600" />
+                    <CardTitle className="text-sm font-semibold text-slate-800">
+                      {t("task_detail.timeline_title")}
+                    </CardTitle>
+                  </div>
+                  {task.status === "DISPUTED" && (
+                    <Badge className="bg-red-100 text-red-800 hover:bg-red-100 border-red-200 text-xs">
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      {t("task_detail.step_disputed")}
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-5 sm:p-6">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 relative">
+                  {lifecycleSteps.map((step, idx) => {
+                    const StepIcon = step.icon;
+                    return (
+                      <div
+                        key={step.key}
+                        className={`flex flex-col p-3 rounded-xl border transition-all ${
+                          step.isCurrent
+                            ? "bg-blue-50/60 border-blue-300 ring-2 ring-blue-500/20 shadow-xs"
+                            : step.isCompleted
+                            ? "bg-emerald-50/30 border-emerald-200/80"
+                            : "bg-slate-50/40 border-slate-200/60 opacity-60"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
+                              step.isCurrent
+                                ? "bg-blue-600 text-white shadow-xs"
+                                : step.isCompleted
+                                ? "bg-emerald-600 text-white"
+                                : "bg-slate-200 text-slate-500"
+                            }`}
+                          >
+                            {step.isCompleted ? <Check className="w-4 h-4" /> : idx + 1}
+                          </div>
+                          {step.isCurrent && (
+                            <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+                          )}
+                        </div>
+                        <span
+                          className={`text-xs font-bold leading-tight ${
+                            step.isCurrent
+                              ? "text-blue-900"
+                              : step.isCompleted
+                              ? "text-emerald-950"
+                              : "text-slate-600"
+                          }`}
+                        >
+                          {step.label}
+                        </span>
+                        <span className="text-[11px] text-slate-500 mt-1 leading-snug hidden sm:block">
+                          {step.desc}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Dynamic Next Action Guidance Box */}
+          {nextAction.text && (
+            <div
+              className={`p-4 rounded-xl border flex items-start gap-3.5 transition-all ${
+                nextAction.variant === "urgent"
+                  ? "bg-amber-50 border-amber-200 text-amber-900"
+                  : nextAction.variant === "dispute"
+                  ? "bg-red-50 border-red-200 text-red-900"
+                  : nextAction.variant === "success"
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                  : "bg-blue-50/60 border-blue-200 text-blue-900"
+              }`}
+            >
+              <div
+                className={`p-2 rounded-lg shrink-0 ${
+                  nextAction.variant === "urgent"
+                    ? "bg-amber-200/70 text-amber-900"
+                    : nextAction.variant === "dispute"
+                    ? "bg-red-200/70 text-red-900"
+                    : nextAction.variant === "success"
+                    ? "bg-emerald-200/70 text-emerald-900"
+                    : "bg-blue-200/70 text-blue-900"
+                }`}
+              >
+                {nextAction.variant === "urgent" ? (
+                  <AlertTriangle className="w-4 h-4" />
+                ) : nextAction.variant === "dispute" ? (
+                  <ShieldAlert className="w-4 h-4" />
+                ) : nextAction.variant === "success" ? (
+                  <CheckCircle2 className="w-4 h-4" />
+                ) : (
+                  <Info className="w-4 h-4" />
+                )}
+              </div>
+              <div className="flex-1 text-xs sm:text-sm">
+                <div className="font-semibold mb-0.5">{t("task_detail.next_action_title")}</div>
+                <p className="opacity-90 leading-relaxed">{nextAction.text}</p>
+              </div>
+            </div>
+          )}
+
+          {/* 2-Column Responsive Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            {/* Left Main Workflow Column (2/3 width) */}
+            <div className="lg:col-span-2 space-y-6">
+
+              {/* Task Edit Form (when isEditing is active) */}
+              {isEditing ? (
+                <Card className="border-blue-200 shadow-sm">
+                  <CardHeader className="bg-blue-50/50 border-b border-blue-100">
+                    <CardTitle className="text-base text-blue-950 flex items-center justify-between">
+                      <span>{t("task_detail.edit_task_btn")}</span>
+                      <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <form onSubmit={handleUpdateTask} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                          {t("ui.title")}
+                        </label>
+                        <Input
+                          value={editForm.title}
+                          onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                          required
+                          minLength={5}
+                          className="bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                          {t("ui.description")}
+                        </label>
+                        <textarea
+                          rows={4}
+                          value={editForm.description}
+                          onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                          required
+                          minLength={10}
+                          className="w-full border rounded-lg p-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 bg-white"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                            {t("ui.scheduled")}
+                          </label>
+                          <Input
+                            type="datetime-local"
+                            value={editForm.scheduledFor}
+                            onChange={(e) => setEditForm({ ...editForm, scheduledFor: e.target.value })}
+                            required
+                            className="bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                            {t("ui.category")}
+                          </label>
+                          <select
+                            value={editForm.category}
+                            onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                            className="w-full border rounded-lg p-2.5 text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">{t("ui.no_category")}</option>
+                            <option value="Home Services">{t("ui.home_services")}</option>
+                            <option value="Delivery">{t("ui.delivery")}</option>
+                            <option value="Tech Support">{t("ui.tech_support")}</option>
+                            <option value="Handyman">{t("ui.handyman")}</option>
+                            <option value="Cleaning">{t("ui.cleaning")}</option>
+                            <option value="Moving">{t("ui.moving")}</option>
+                            <option value="Other">{t("ui.other")}</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">
+                          {t("ui.location")}
+                        </label>
+                        <LocationPicker
+                          initialLocation={{
+                            address: editForm.address,
+                            landmark: editForm.landmark,
+                            city: editForm.city,
+                            state: editForm.state,
+                            locationLat: editForm.locationLat,
+                            locationLng: editForm.locationLng,
+                          }}
+                          onLocationSelect={(loc) => {
+                            setEditForm((prev) => ({ ...prev, ...loc }));
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex gap-2 justify-end pt-3">
+                        <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
+                          {t("ui.cancel")}
+                        </Button>
+                        <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">
+                          {t("ui.save_changes")}
+                        </Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              ) : (
+                /* Task Requirements & Description Card */
+                <Card className="border-slate-200/80 shadow-xs">
+                  <CardHeader className="py-4 px-5 border-b border-slate-100">
+                    <CardTitle className="text-base font-semibold text-slate-900">
+                      {t("task_detail.service_requirements")}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5 sm:p-6 space-y-4">
+                    <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                      {task.description}
+                    </div>
+
+                    {/* Structured Service Specs if linked */}
+                    {service ? (
+                      <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                            {t("task_detail.structured_service_badge")}
+                          </span>
+                          <span className="text-xs text-blue-600 font-medium">
+                            {service.category?.name || task.category}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600">{service.description}</p>
+
+                        {/* Required skills tags */}
+                        {service.skills && service.skills.length > 0 && (
+                          <div className="space-y-1.5 pt-1">
+                            <span className="text-xs font-semibold text-slate-700 block">
+                              {t("task_detail.required_skills")}
+                            </span>
+                            <div className="flex gap-2 flex-wrap">
+                              {service.skills.map((skill: any) => {
+                                const hasSkill = workerProfile?.skills?.some((ws: any) => ws.id === skill.id);
+                                return (
+                                  <Badge
+                                    key={skill.id}
+                                    variant={hasSkill ? "default" : "outline"}
+                                    className={`text-xs ${
+                                      hasSkill
+                                        ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-none font-medium"
+                                        : "bg-slate-50 text-slate-600 border-slate-200"
+                                    }`}
+                                  >
+                                    {skill.name}
+                                    {hasSkill && " ✓"}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-4 pt-4 border-t border-slate-100">
+                        <Badge variant="outline" className="text-xs text-slate-500 bg-slate-50">
+                          {t("task_detail.legacy_service_badge")}
+                        </Badge>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Worker Action: Start Task Action Callout (when ACCEPTED) */}
+              {isHelper && task.status === "ACCEPTED" && (
+                <Card className="border-blue-300 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 shadow-xs">
+                  <CardContent className="p-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <h3 className="font-bold text-base text-blue-950">
+                          {t("task_detail.start_task_btn")}
+                        </h3>
+                        <p className="text-xs text-blue-800">
+                          {t("task_detail.action_worker_accepted")}
+                        </p>
+                      </div>
+                      <Button
+                        size="lg"
+                        onClick={() =>
+                          setConfirmModal({
+                            isOpen: true,
+                            title: t("task_detail.start_confirm_title"),
+                            description: t("task_detail.start_confirm_desc"),
+                            confirmText: t("task_detail.start_task_btn"),
+                            variant: "default",
+                            onConfirm: executeStartTask,
+                          })
+                        }
+                        disabled={isStarting}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold shrink-0 w-full sm:w-auto"
+                      >
+                        {isStarting ? t("task.loading") : t("task_detail.start_task_btn")}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Worker Action: Upload Proof of Work (when IN_PROGRESS) */}
+              {isHelper && task.status === "IN_PROGRESS" && (
+                <Card className="border-blue-200 shadow-sm bg-white">
+                  <CardHeader className="bg-slate-50/60 border-b border-slate-100 py-4 px-5">
+                    <div className="flex items-center gap-2">
+                      <Camera className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <CardTitle className="text-base font-semibold text-slate-900">
+                          {t("task_detail.upload_proof_title")}
+                        </CardTitle>
+                        <CardDescription className="text-xs text-slate-500">
+                          {t("task_detail.upload_proof_desc")}
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    <div className="border-2 border-dashed border-slate-200 hover:border-blue-400 transition-colors rounded-xl p-6 text-center space-y-3 bg-slate-50/50">
+                      {proofPreviewUrl ? (
+                        <div className="space-y-3">
+                          <img
+                            src={proofPreviewUrl}
+                            alt="Proof Preview"
+                            className="max-h-56 mx-auto rounded-lg border shadow-xs object-cover"
+                          />
+                          <div className="flex items-center justify-center gap-3">
+                            <span className="text-xs text-slate-600 font-medium">
+                              {proofFile?.name}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setProofFile(null);
+                                setProofPreviewUrl(null);
+                              }}
+                              className="text-red-600 hover:bg-red-50 text-xs h-7"
+                            >
+                              <X className="w-3.5 h-3.5 mr-1" /> Remove
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="cursor-pointer block space-y-2">
+                          <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 mx-auto flex items-center justify-center">
+                            <Upload className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <span className="text-sm font-semibold text-blue-600 hover:underline">
+                              {t("task_detail.select_photo")}
+                            </span>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              JPG, PNG, or WebP up to 5MB
+                            </p>
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="hidden"
+                            onChange={handleProofFileChange}
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    {proofFile && (
+                      <div className="flex justify-end">
+                        <Button
+                          onClick={handleUploadProof}
+                          disabled={isUploadingProof}
+                          className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                        >
+                          {isUploadingProof ? t("task_detail.uploading") : t("task_detail.submit_proof_btn")}
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Customer Action: Approve Completion (when PROOF_SUBMITTED) */}
+              {isOwner && task.status === "PROOF_SUBMITTED" && (
+                <Card className="border-emerald-300 bg-gradient-to-br from-emerald-50/90 to-teal-50/50 shadow-xs">
+                  <CardContent className="p-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <h3 className="font-bold text-base text-emerald-950 flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                          {t("task_detail.approve_completion_btn")}
+                        </h3>
+                        <p className="text-xs text-emerald-800 leading-relaxed">
+                          {t("task_detail.action_customer_proof")}
+                        </p>
+                      </div>
+                      <Button
+                        size="lg"
+                        onClick={() =>
+                          setConfirmModal({
+                            isOpen: true,
+                            title: t("task_detail.approve_confirm_title"),
+                            description: t("task_detail.approve_confirm_desc"),
+                            confirmText: t("task_detail.approve_completion_btn"),
+                            variant: "success",
+                            onConfirm: executeApproveCompletion,
+                          })
+                        }
+                        disabled={isApproving}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shrink-0 w-full sm:w-auto shadow-xs"
+                      >
+                        {isApproving ? t("task.loading") : t("task_detail.approve_completion_btn")}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Proof of Work Gallery Card (if media attachments exist) */}
+              {task.media && task.media.length > 0 && (
+                <Card className="border-slate-200/80 shadow-xs">
+                  <CardHeader className="py-4 px-5 border-b border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-base font-semibold text-slate-900">
+                          {t("task_detail.proof_gallery_title")}
+                        </CardTitle>
+                        <CardDescription className="text-xs text-slate-500">
+                          {t("task_detail.proof_gallery_desc")}
+                        </CardDescription>
+                      </div>
+                      <Badge variant="outline" className="text-xs bg-slate-50 text-slate-600">
+                        {task.media.length} {t("task_detail.evidence_attached")}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-5 sm:p-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {task.media.map((m: any) => (
+                        <div
+                          key={m.id}
+                          onClick={() => setSelectedMediaPreview(m.url)}
+                          className="group relative cursor-pointer overflow-hidden rounded-xl border border-slate-200 bg-slate-100 aspect-square shadow-xs"
+                        >
+                          <img
+                            src={m.url}
+                            alt="Job Evidence"
+                            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                            <Eye className="w-6 h-6" />
+                          </div>
+                          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-2 text-[10px] text-white">
+                            {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Applicant Management (for Customer when task is OPEN) */}
+              {isOwner && task.status === "OPEN" && (
+                <Card className="border-slate-200/80 shadow-xs">
+                  <CardHeader className="py-4 px-5 border-b border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-base font-semibold text-slate-900">
+                          {t("task_detail.applicants_title")} ({applications.length})
+                        </CardTitle>
+                        <CardDescription className="text-xs text-slate-500">
+                          {t("task_detail.applicants_desc")}
+                        </CardDescription>
+                      </div>
+                      <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                        Live Bids
+                      </span>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-5 sm:p-6 space-y-4">
+                    {applications.length > 0 ? (
+                      <div className="space-y-3">
+                        {applications.map((app) => {
+                          const tasker = app.tasker;
+                          const profile = tasker?.profile;
+                          const score = Number(profile?.trustScore) || 0;
+                          return (
+                            <div
+                              key={app.id}
+                              className="p-4 rounded-xl border border-slate-200/80 bg-white hover:border-blue-200 hover:shadow-xs transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                            >
+                              <div className="flex items-start gap-3.5 flex-1">
+                                <Avatar className="h-12 w-12 border border-slate-200 shrink-0">
+                                  {profile?.avatarUrl ? (
+                                    <AvatarImage src={profile.avatarUrl} alt={profile.fullName} />
+                                  ) : null}
+                                  <AvatarFallback className="bg-blue-50 text-blue-700 font-bold">
+                                    {profile?.fullName?.[0] || tasker.email[0].toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+
+                                <div className="space-y-1 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <Link
+                                      to={`/user/${tasker.id}`}
+                                      className="font-bold text-slate-900 hover:text-blue-600 text-sm"
+                                    >
+                                      {profile?.fullName || t("task_detail.anonymous_user")}
+                                    </Link>
+                                    <VerifiedWorkerBadge size="sm" />
+                                  </div>
+
+                                  <div className="flex items-center gap-3">
+                                    <TrustScoreBadge score={score} />
+                                    <span className="text-xs text-slate-400">
+                                      Applied {new Date(app.createdAt).toLocaleDateString()}
+                                    </span>
+                                  </div>
+
+                                  {app.message && (
+                                    <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 mt-1 italic">
+                                      "{app.message}"
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <Button
+                                onClick={() =>
+                                  setConfirmModal({
+                                    isOpen: true,
+                                    title: "Select Worker & Lock Escrow?",
+                                    description: `Confirm assigning this task to ${profile?.fullName || "this worker"}. Booking funds will be safely locked in HelpGram cooperative escrow.`,
+                                    confirmText: t("task_detail.select_worker_btn"),
+                                    variant: "default",
+                                    onConfirm: () => handleSelectHelper(tasker.id),
+                                  })
+                                }
+                                disabled={isSelectingHelper === tasker.id}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shrink-0 w-full sm:w-auto"
+                              >
+                                {isSelectingHelper === tasker.id
+                                  ? t("task_detail.selecting")
+                                  : t("task_detail.select_worker_btn")}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="p-8 border border-dashed border-slate-200 rounded-xl text-center space-y-2 bg-slate-50/50">
+                        <Users className="w-8 h-8 text-slate-400 mx-auto" />
+                        <p className="text-sm font-medium text-slate-700">
+                          {t("task_detail.no_applicants_yet")}
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Worker Application Box (for eligible workers when task is OPEN) */}
+              {!isOwner && isWorkerRole && task.status === "OPEN" && (
+                <Card className="border-blue-200/80 shadow-xs bg-white">
+                  <CardHeader className="py-4 px-5 border-b border-slate-100 bg-blue-50/30">
+                    <CardTitle className="text-base font-semibold text-slate-900">
+                      {t("task_detail.apply_title")}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5 sm:p-6">
+                    {hasApplied ? (
+                      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3 text-emerald-900 text-sm">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <div>
+                          <p className="font-bold">{t("task_detail.already_applied_badge")}</p>
+                          <p className="text-xs text-emerald-700 mt-0.5">
+                            {t("task_detail.action_worker_open_applied")}
+                          </p>
+                        </div>
+                      </div>
+                    ) : isApplying ? (
+                      <div className="space-y-4">
+                        <textarea
+                          placeholder={t("task_detail.apply_placeholder")}
+                          className="w-full border rounded-xl p-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 bg-white"
+                          rows={3}
+                          value={applyMessage}
+                          onChange={(e) => setApplyMessage(e.target.value)}
+                        />
+
+                        {applyError && (
+                          <div className="p-3.5 bg-red-50 text-red-800 rounded-xl text-xs border border-red-200 space-y-1">
+                            <p className="font-bold">
+                              {typeof applyError.error === "string" ? applyError.error : "Eligibility Notice"}
+                            </p>
+                            {applyError.error === "ACCOUNT_RESTRICTED" && (
+                              <p>{applyError.message}</p>
+                            )}
+                            {applyError.reason === "MISSING_SKILLS" && applyError.missingSkills && (
+                              <p>
+                                {t("ui.missing_required_skills")}: {applyError.missingSkills.join(", ")}
+                              </p>
+                            )}
+                            {applyError.reason === "CROSS_FEDERATION" && (
+                              <p>{t("ui.you_must_belong")}</p>
+                            )}
+                            {applyError.reason === "NO_ACTIVE_SOCIETY_MEMBERSHIP" && (
+                              <p>{t("ui.you_must_have")}</p>
+                            )}
+                            {applyError.reason === "SERVICE_INACTIVE" && (
+                              <p>{t("ui.the_structured_service")}</p>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setIsApplying(false);
+                              setApplyError(null);
+                            }}
+                          >
+                            {t("ui.cancel")}
+                          </Button>
+                          <Button
+                            onClick={handleApply}
+                            disabled={isSubmittingApply}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                          >
+                            {isSubmittingApply ? t("task.loading") : t("task_detail.submit_application_btn")}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        size="lg"
+                        onClick={() => setIsApplying(true)}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm"
+                      >
+                        {t("task.apply")}
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Active Dispute Information Banner (if task is in dispute) */}
+              {task.dispute && (
+                <Card className="border-red-200 bg-red-50/50 shadow-xs">
+                  <CardHeader className="py-4 px-5 border-b border-red-100 bg-red-100/40">
+                    <CardTitle className="text-base text-red-950 flex items-center gap-2 font-bold">
+                      <ShieldAlert className="w-5 h-5 text-red-700" />
+                      {t("task_detail.dispute_banner_title")}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5 sm:p-6 space-y-3 text-xs sm:text-sm">
+                    <div className="flex justify-between items-center py-1 border-b border-red-100">
+                      <span className="font-semibold text-red-900">
+                        {t("task_detail.dispute_status_label")}
+                      </span>
+                      <Badge variant="destructive" className="bg-red-600">
+                        {task.dispute.status}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-red-900 block mb-1">
+                        {t("task_detail.dispute_reason_label")}:
+                      </span>
+                      <p className="text-red-800 bg-white p-3 rounded-lg border border-red-200/80 leading-relaxed">
+                        {task.dispute.reason}
+                      </p>
+                    </div>
+                    {task.dispute.resolution && (
+                      <div className="pt-2">
+                        <span className="font-semibold text-red-900 block mb-1">
+                          {t("task_detail.dispute_resolution_label")}:
+                        </span>
+                        <p className="text-red-900 font-medium bg-white p-3 rounded-lg border border-red-200">
+                          {task.dispute.resolution}
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Open Dispute Form Modal/Section */}
+              {isDisputing && !task.dispute && (
+                <Card className="border-red-200 shadow-sm bg-white">
+                  <CardHeader className="bg-red-50/70 border-b border-red-100 py-4 px-5">
+                    <CardTitle className="text-base font-bold text-red-950 flex items-center gap-2">
+                      <ShieldAlert className="w-5 h-5 text-red-600" />
+                      {t("task_detail.file_dispute_title")}
+                    </CardTitle>
+                    <CardDescription className="text-xs text-red-800">
+                      {t("task_detail.file_dispute_desc")}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-5 sm:p-6 space-y-4">
+                    <textarea
+                      value={disputeReason}
+                      onChange={(e) => setDisputeReason(e.target.value)}
+                      placeholder={t("task_detail.dispute_reason_placeholder")}
+                      className="w-full border rounded-xl p-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-red-500 bg-white"
+                      rows={4}
+                      required
+                      minLength={10}
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="outline" onClick={() => setIsDisputing(false)}>
+                        {t("ui.cancel")}
+                      </Button>
+                      <Button
+                        onClick={handleDispute}
+                        disabled={isSubmittingDispute || disputeReason.trim().length < 10}
+                        className="bg-red-600 hover:bg-red-700 text-white font-bold"
+                      >
+                        {isSubmittingDispute ? t("task.loading") : t("task_detail.submit_dispute_btn")}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Leave a Review Section (when task is COMPLETED) */}
+              {(isOwner || isHelper) && task.status === "COMPLETED" && (
+                <Card className="border-purple-200 bg-white shadow-xs">
+                  <CardHeader className="py-4 px-5 border-b border-purple-100 bg-purple-50/40">
+                    <CardTitle className="text-base font-semibold text-purple-950 flex items-center gap-2">
+                      <Star className="w-5 h-5 text-amber-500 fill-amber-400" />
+                      {t("task_detail.review_title")}
+                    </CardTitle>
+                    <CardDescription className="text-xs text-purple-800">
+                      {t("task_detail.review_desc")}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-5 sm:p-6 space-y-4">
+                    {isReviewing ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-slate-700 mr-2">Rating:</span>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setReviewForm({ ...reviewForm, rating: star })}
+                              className="text-2xl transition-transform hover:scale-110 focus:outline-hidden"
+                            >
+                              <Star
+                                className={`w-7 h-7 ${
+                                  star <= reviewForm.rating
+                                    ? "text-amber-500 fill-amber-400"
+                                    : "text-slate-300"
+                                }`}
+                              />
+                            </button>
+                          ))}
+                        </div>
+
+                        <textarea
+                          value={reviewForm.comment}
+                          onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+                          placeholder={t("task_detail.review_comment_placeholder")}
+                          className="w-full border rounded-xl p-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-purple-500 bg-white"
+                          rows={3}
+                        />
+
+                        <div className="flex gap-2 justify-end">
+                          <Button variant="outline" onClick={() => setIsReviewing(false)}>
+                            {t("ui.cancel")}
+                          </Button>
+                          <Button
+                            onClick={handleReview}
+                            disabled={isSubmittingReview}
+                            className="bg-purple-600 hover:bg-purple-700 text-white font-bold"
+                          >
+                            {isSubmittingReview ? t("task.loading") : t("task_detail.submit_review_btn")}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={() => setIsReviewing(true)}
+                        className="bg-purple-600 hover:bg-purple-700 text-white font-bold"
+                      >
+                        <Star className="w-4 h-4 mr-2" />
+                        {t("task_detail.leave_review_btn")}
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+            </div>
+
+            {/* Right Sidebar Column (Trust, Escrow & Participants) (1/3 width) */}
+            <div className="space-y-6">
+
+              {/* Financial & Escrow Summary Card */}
+              <Card className="border-slate-200/80 shadow-xs overflow-hidden">
+                <CardHeader className="py-4 px-5 border-b border-slate-100 bg-slate-50/60">
+                  <CardTitle className="text-sm font-bold text-slate-900 flex items-center justify-between">
+                    <span>{t("task_detail.financial_title")}</span>
+                    <CooperativeShield className="scale-75" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-5 space-y-4">
+                  <div className="space-y-2.5 text-xs sm:text-sm">
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>{t("task_detail.booking_price")}</span>
+                      <span className="font-bold text-slate-900">
+                        ₹{Number(task.price).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-500">
+                      <span>{t("task_detail.coop_fee")}</span>
+                      <span className="font-medium text-amber-700">
+                        -₹{(Number(task.price) * 0.1).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="h-px bg-slate-100" />
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-slate-800">
+                        {t("task_detail.worker_payout")}
+                      </span>
+                      <span className="font-extrabold text-emerald-600 text-base">
+                        ₹{(Number(task.price) * 0.9).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Escrow Status Banner */}
+                  <div className="pt-3 border-t border-slate-100 space-y-2">
+                    <span className="text-[11px] uppercase tracking-wider text-slate-400 font-bold block">
+                      {t("task_detail.escrow_protection")}
+                    </span>
+
+                    {task.status === "OPEN" && (
+                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-600 space-y-1">
+                        <div className="font-semibold text-slate-800 flex items-center gap-1.5">
+                          <Lock className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Pending Assignment</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          {t("task_detail.escrow_open_hint")}
+                        </p>
+                      </div>
+                    )}
+
+                    {["ACCEPTED", "IN_PROGRESS", "PROOF_SUBMITTED"].includes(task.status) && (
+                      <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-xs text-emerald-950 space-y-1">
+                        <div className="font-bold text-emerald-900 flex items-center gap-1.5">
+                          <Lock className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Escrow Locked & Protected</span>
+                        </div>
+                        <p className="text-[11px] text-emerald-800">
+                          {t("task_detail.escrow_locked_hint")}
+                        </p>
+                      </div>
+                    )}
+
+                    {task.status === "COMPLETED" && (
+                      <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-xs text-emerald-950 space-y-1">
+                        <div className="font-bold text-emerald-900 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Escrow Released</span>
+                        </div>
+                        <p className="text-[11px] text-emerald-800">
+                          {t("task_detail.escrow_released_hint")}
+                        </p>
+                      </div>
+                    )}
+
+                    {task.status === "CANCELLED" && (
+                      <div className="p-3 bg-slate-100 rounded-lg border border-slate-200 text-xs text-slate-700 space-y-1">
+                        <div className="font-bold text-slate-800">Escrow Refunded</div>
+                        <p className="text-[11px] text-slate-600">
+                          {t("task_detail.escrow_refunded_hint")}
+                        </p>
+                      </div>
+                    )}
+
+                    {task.status === "DISPUTED" && (
+                      <div className="p-3 bg-red-50 rounded-lg border border-red-200 text-xs text-red-950 space-y-1">
+                        <div className="font-bold text-red-900 flex items-center gap-1.5">
+                          <ShieldAlert className="w-3.5 h-3.5 text-red-700" />
+                          <span>Escrow Frozen</span>
+                        </div>
+                        <p className="text-[11px] text-red-800">
+                          {t("task_detail.escrow_disputed_hint")}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Customer / Requester Profile Card */}
+              <Card className="border-slate-200/80 shadow-xs">
+                <CardHeader className="py-3.5 px-5 border-b border-slate-100 bg-slate-50/50">
+                  <CardTitle className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    {t("task_detail.customer_card_title")}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-5 flex items-start gap-3.5">
+                  <Avatar className="h-12 w-12 border border-slate-200 shrink-0">
+                    {task.requester?.profile?.avatarUrl ? (
+                      <AvatarImage src={task.requester.profile.avatarUrl} alt="Requester" />
+                    ) : null}
+                    <AvatarFallback className="bg-blue-100 text-blue-700 font-bold">
+                      {task.requester?.profile?.fullName?.[0] || task.requester?.email?.[0]?.toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-1 flex-1">
+                    <Link
+                      to={`/user/${task.requester?.id}`}
+                      className="font-bold text-sm text-slate-900 hover:text-blue-600 block"
+                    >
+                      {task.requester?.profile?.fullName || t("task_detail.anonymous_user")}
+                    </Link>
+                    <p className="text-xs text-slate-500">{task.requester?.email}</p>
+                    {task.requester?.profile?.trustScore !== undefined && (
+                      <div className="pt-1">
+                        <TrustScoreBadge score={Number(task.requester.profile.trustScore)} />
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Assigned Worker Profile Card (if taskerId is assigned) */}
+              {task.tasker && (
+                <Card className="border-blue-200/90 shadow-xs bg-white">
+                  <CardHeader className="py-3.5 px-5 border-b border-blue-50 bg-blue-50/40">
+                    <CardTitle className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center justify-between">
+                      <span>{t("task_detail.worker_card_title")}</span>
+                      <VerifiedWorkerBadge size="sm" />
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5 space-y-4">
+                    <div className="flex items-start gap-3.5">
+                      <Avatar className="h-12 w-12 border border-blue-200 shrink-0">
+                        {task.tasker.profile?.avatarUrl ? (
+                          <AvatarImage src={task.tasker.profile.avatarUrl} alt="Tasker" />
+                        ) : null}
+                        <AvatarFallback className="bg-purple-100 text-purple-700 font-bold">
+                          {task.tasker.profile?.fullName?.[0] || task.tasker.email[0].toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="space-y-1 flex-1">
+                        <Link
+                          to={`/user/${task.tasker.id}`}
+                          className="font-bold text-sm text-slate-900 hover:text-blue-600 block"
+                        >
+                          {task.tasker.profile?.fullName || t("task_detail.anonymous_user")}
+                        </Link>
+                        <p className="text-xs text-slate-500">{task.tasker.email}</p>
+                        {task.tasker.profile?.trustScore !== undefined && (
+                          <div className="pt-1">
+                            <TrustScoreBadge score={Number(task.tasker.profile.trustScore)} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {(isOwner || isHelper) && (
+                      <Button
+                        variant="outline"
+                        onClick={() => navigate("/chat")}
+                        className="w-full border-blue-200 text-blue-700 hover:bg-blue-50 font-semibold text-xs"
+                      >
+                        <MessageSquare className="w-4 h-4 mr-1.5" />
+                        {isOwner ? t("task_detail.chat_btn") : t("task_detail.chat_customer_btn")}
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Location & Schedule Card */}
+              <Card className="border-slate-200/80 shadow-xs">
+                <CardHeader className="py-3.5 px-5 border-b border-slate-100 bg-slate-50/50">
+                  <CardTitle className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    {t("task_detail.location_card_title")}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-5 space-y-4">
+                  <div className="space-y-2.5 text-xs text-slate-700">
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-slate-900">
+                          {task.address || "Location Coordinates"}
+                        </p>
+                        {task.city && <p className="text-slate-500">{task.city}{task.state ? `, ${task.state}` : ""}</p>}
+                        {task.landmark && (
+                          <p className="text-slate-500 mt-0.5">
+                            {t("ui.near")}: <span className="font-medium">{task.landmark}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2 pt-1 border-t border-slate-100">
+                      <Calendar className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-slate-900">
+                          {new Date(task.scheduledFor).toLocaleDateString()}
+                        </p>
+                        <p className="text-slate-500">
+                          {new Date(task.scheduledFor).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Embedded Google Map Preview */}
+                  {task.locationLat && task.locationLng && (
+                    <div className="w-full h-44 rounded-xl overflow-hidden border border-slate-200 relative shadow-inner">
+                      <Map mapId="DEMO_MAP_ID"
+                        defaultCenter={{ lat: Number(task.locationLat), lng: Number(task.locationLng) }}
+                        defaultZoom={14}
+                        gestureHandling="cooperative"
+                        disableDefaultUI={true}
+                        className="w-full h-full"
+                      >
+                        <AdvancedMarker position={{ lat: Number(task.locationLat), lng: Number(task.locationLng) }}>
+                          <Pin background="#2563eb" glyphColor="#ffffff" borderColor="#1e40af" />
+                        </AdvancedMarker>
+                      </Map>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* Mobile Sticky Primary Action Footer */}
+        <div className="md:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200 p-3.5 z-40 shadow-lg">
+          <div className="flex items-center gap-2">
+            {/* Owner: Approve Proof */}
+            {isOwner && task.status === "PROOF_SUBMITTED" && (
+              <Button
+                onClick={() =>
+                  setConfirmModal({
+                    isOpen: true,
+                    title: t("task_detail.approve_confirm_title"),
+                    description: t("task_detail.approve_confirm_desc"),
+                    confirmText: t("task_detail.approve_completion_btn"),
+                    variant: "success",
+                    onConfirm: executeApproveCompletion,
+                  })
+                }
+                disabled={isApproving}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                {t("task_detail.approve_completion_btn")}
+              </Button>
+            )}
+
+            {/* Worker: Start Task */}
+            {isHelper && task.status === "ACCEPTED" && (
+              <Button
+                onClick={() =>
+                  setConfirmModal({
+                    isOpen: true,
+                    title: t("task_detail.start_confirm_title"),
+                    description: t("task_detail.start_confirm_desc"),
+                    confirmText: t("task_detail.start_task_btn"),
+                    variant: "default",
+                    onConfirm: executeStartTask,
+                  })
+                }
+                disabled={isStarting}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold h-11"
+              >
+                {t("task_detail.start_task_btn")}
+              </Button>
+            )}
+
+            {/* Worker: In Progress Proof Scroll */}
+            {isHelper && task.status === "IN_PROGRESS" && (
+              <Button
+                onClick={() => window.scrollTo({ top: 400, behavior: "smooth" })}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold h-11"
+              >
+                <Camera className="w-4 h-4 mr-2" />
+                {t("task_detail.upload_proof_title")}
+              </Button>
+            )}
+
+            {/* Worker: Apply when OPEN */}
+            {!isOwner && isWorkerRole && task.status === "OPEN" && !hasApplied && (
+              <Button
+                onClick={() => setIsApplying(true)}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold h-11"
+              >
+                {t("task.apply")}
+              </Button>
+            )}
+
+            {/* Chat Quick Action */}
+            {task.taskerId && (isOwner || isHelper) && (
+              <Button
+                variant="outline"
+                onClick={() => navigate("/chat")}
+                className="h-11 px-4 border-slate-300"
+              >
+                <MessageSquare className="w-5 h-5 text-blue-600" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Modal: Media / Photo Zoom Lightbox */}
+        {selectedMediaPreview && (
+          <div
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setSelectedMediaPreview(null)}
+          >
+            <div className="relative max-w-3xl max-h-[90vh] bg-slate-900 rounded-2xl overflow-hidden border border-slate-700 shadow-2xl">
+              <button
+                onClick={() => setSelectedMediaPreview(null)}
+                className="absolute top-3 right-3 p-2 bg-black/60 hover:bg-black/90 text-white rounded-full transition-colors z-10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <img
+                src={selectedMediaPreview}
+                alt="Enlarged Proof"
+                className="max-w-full max-h-[85vh] object-contain mx-auto"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Generic Confirmation Dialog */}
+        {confirmModal.isOpen && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+              <h3 className="text-lg font-bold text-slate-900">{confirmModal.title}</h3>
+              <p className="text-sm text-slate-600 leading-relaxed">{confirmModal.description}</p>
+              <div className="flex gap-2 justify-end pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+                >
+                  {t("ui.cancel")}
+                </Button>
+                <Button
+                  variant={confirmModal.variant === "destructive" ? "destructive" : "default"}
+                  className={
+                    confirmModal.variant === "success"
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                      : confirmModal.variant === "destructive"
+                      ? "bg-red-600 hover:bg-red-700 text-white font-bold"
+                      : "bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                  }
+                  onClick={confirmModal.onConfirm}
+                >
+                  {confirmModal.confirmText}
+                </Button>
               </div>
             </div>
           </div>
-        </div>
-
-        {canEditOrCancel && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setIsEditing(!isEditing)}>
-              {isEditing ? "Cancel Edit" : "Edit Task"}
-            </Button>
-            <Button variant="destructive" onClick={handleCancel}>{t("ui.cancel_task")}</Button>
-          </div>
         )}
+
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-          {/* Status Timeline Component */}
-          {task.status !== "OPEN" && task.status !== "CANCELLED" && task.status !== "DRAFT" && (
-            <Card className="bg-slate-50/50">
-              <CardContent className="py-6">
-                <div className="flex items-center justify-between text-sm">
-                  <div className={`flex flex-col items-center ${task.status === "ACCEPTED" || task.status === "IN_PROGRESS" || task.status === "PROOF_SUBMITTED" || task.status === "COMPLETED" ? 'text-primary font-semibold' : 'text-slate-400'}`}>
-                    <CheckCircle2 className="h-6 w-6 mb-1 text-blue-500" /> {t("ui.helper_selected")}</div>
-                  <div className="flex-1 h-px bg-slate-200 mx-2"></div>
-                  <div className={`flex flex-col items-center ${task.status === "IN_PROGRESS" || task.status === "PROOF_SUBMITTED" || task.status === "COMPLETED" ? 'text-primary font-semibold' : 'text-slate-400'}`}>
-                    <CheckCircle2 className={`h-6 w-6 mb-1 ${task.status === "IN_PROGRESS" || task.status === "PROOF_SUBMITTED" || task.status === "COMPLETED" ? 'text-amber-500' : 'text-slate-300'}`} /> {t("ui.in_progress")}</div>
-                  <div className="flex-1 h-px bg-slate-200 mx-2"></div>
-                  <div className={`flex flex-col items-center ${task.status === "PROOF_SUBMITTED" || task.status === "COMPLETED" ? 'text-primary font-semibold' : 'text-slate-400'}`}>
-                    <CheckCircle2 className={`h-6 w-6 mb-1 ${task.status === "PROOF_SUBMITTED" || task.status === "COMPLETED" ? 'text-purple-500' : 'text-slate-300'}`} /> {t("ui.proof_submitted")}</div>
-                  <div className="flex-1 h-px bg-slate-200 mx-2"></div>
-                  <div className={`flex flex-col items-center ${task.status === "COMPLETED" ? 'text-primary font-semibold' : 'text-slate-400'}`}>
-                    <CheckCircle2 className={`h-6 w-6 mb-1 ${task.status === "COMPLETED" ? 'text-green-500' : 'text-slate-300'}`} /> {t("ui.completed")}</div>
-                </div>
-
-                <div className="mt-6 flex justify-center gap-4">
-                  {isHelper && task.status === "ACCEPTED" && (
-                     <Button onClick={() => handleTransitionAction("start")}>{t("ui.start_task")}</Button>
-                  )}
-                  {isHelper && task.status === "IN_PROGRESS" && (
-    <label className="cursor-pointer bg-slate-900 text-white hover:bg-slate-800 inline-flex items-center justify-center rounded-md text-sm font-medium h-9 px-4 py-2">
-      {t("ui.submit_proof_of")}<input 
-        type="file" 
-        accept="image/*" 
-        className="hidden" 
-        onChange={async (e) => {
-          if (!e.target.files || !e.target.files[0]) return;
-          const formData = new FormData();
-          formData.append('evidence', e.target.files[0]);
-          try {
-            const res = await fetch(`/api/tasks/${id}/submit-proof`, {
-              method: 'POST',
-              body: formData
-            });
-            if (res.ok) fetchTask();
-            else {
-              const d = await res.json();
-              toast.error(d.error);
-            }
-          } catch(e) {}
-        }}
-      />
-    </label>
-  )}
-                  {isOwner && task.status === "PROOF_SUBMITTED" && (
-                     <Button className="bg-green-600 hover:bg-green-700" onClick={() => handleTransitionAction("approve")}>{t("ui.approve_completion")}</Button>
-                  )}
-                  {(isOwner || isHelper) && task.status === "COMPLETED" && !isReviewing && (
-                     <Button className="bg-purple-600 hover:bg-purple-700" onClick={() => setIsReviewing(true)}>{t("ui.leave_a_review")}</Button>
-                  )}
-                  {(isOwner || isHelper) && (task.status === "COMPLETED" || task.status === "CLOSED") && (
-                     <Link to={`/tasks/${task.id}/invoice`}>
-                       <Button variant="outline" className="flex items-center gap-2">
-                         {t("ui.view_invoice")}</Button>
-                     </Link>
-                  )}
-                  {(isOwner || isHelper) && ['ACCEPTED', 'IN_PROGRESS', 'PROOF_SUBMITTED', 'COMPLETED'].includes(task.status) && !task.dispute && !isDisputing && (
-                     <Button variant="destructive" onClick={() => setIsDisputing(true)}>{t("ui.file_a_dispute")}</Button>
-                  )}
-                </div>
-
-                  {task.media && task.media.length > 0 && (
-    <div className="mt-6 pt-6 border-t">
-      <h3 className="font-semibold mb-3">{t("ui.evidence_provided")}</h3>
-      <div className="flex gap-2 flex-wrap">
-        {task.media.map(m => (
-          <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer">
-            <img src={m.url} alt="Evidence" className="h-24 w-24 object-cover rounded-md border shadow-sm hover:opacity-80 transition-opacity" />
-          </a>
-        ))}
-      </div>
-    </div>
-  )}
-  {isDisputing && (
-                  <div className="mt-6 pt-6 border-t space-y-4">
-                    <h3 className="font-semibold text-lg text-red-600">{t("ui.file_a_dispute")}</h3>
-                    <p className="text-sm text-slate-500">{t("ui.escrow_funds_will")}</p>
-                    <textarea value={disputeForm.reason} onChange={(e) => setDisputeForm({ ...disputeForm, reason: e.target.value })} placeholder="Detailed reason for dispute..." className="w-full border p-2 rounded-md" rows={3}></textarea>
-                    <input type="text" placeholder="Evidence URL (e.g. image link)" className="w-full border p-2 rounded-md" value={evidenceUrl} onChange={(e) => setEvidenceUrl(e.target.value)} />
-                    <div className="flex gap-2 justify-end">
-                      <Button variant="outline" onClick={() => setIsDisputing(false)}>{t("ui.cancel")}</Button>
-                      <Button variant="destructive" onClick={handleDispute}>{t("ui.submit_dispute")}</Button>
-                    </div>
-                  </div>
-                )}
-
-                {task.dispute && (
-                  <div className="mt-6 pt-6 border-t space-y-4">
-                    <div className="bg-red-50 border border-red-100 p-4 rounded-lg">
-                      <h3 className="font-semibold text-red-800 flex items-center gap-2 mb-2">
-                        <ShieldCheck className="h-5 w-5" /> {t("ui.dispute")}{task.dispute.status}
-                      </h3>
-                      <p className="text-sm text-red-700 mb-1"><strong>{t("ui.reason")}</strong> {task.dispute.reason}</p>
-                      {task.dispute.resolution && <p className="text-sm text-red-700 text-bold"><strong>{t("ui.resolution")}</strong> {task.dispute.resolution}</p>}
-                      {task.media && task.media.length > 0 && (
-                        <div className="mt-4">
-                          <p className="text-sm text-red-800 font-semibold mb-1">{t("ui.evidence_files")}</p>
-                          <ul className="list-disc pl-5">
-                            {task.media.map((m: any) => (
-                              <li key={m.id}><a href={m.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{m.url}</a></li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {isReviewing && (
-                  <div className="mt-6 pt-6 border-t space-y-4">
-                    <h3 className="font-semibold text-lg">{t("ui.rate_your_experience")}</h3>
-                    <div className="flex gap-2">
-                       {[1, 2, 3, 4, 5].map(star => (
-                         <button key={star} onClick={() => setReviewForm({ ...reviewForm, rating: star })} className={`text-2xl ${star <= reviewForm.rating ? 'text-amber-500' : 'text-slate-300'}`}>
-                           ★
-                         </button>
-                       ))}
-                    </div>
-                    <textarea value={reviewForm.comment} onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })} placeholder="Write your review..." className="w-full border p-2 rounded-md" rows={3}></textarea>
-                    <div className="flex gap-2 justify-end">
-                      <Button variant="outline" onClick={() => setIsReviewing(false)}>{t("ui.cancel")}</Button>
-                      <Button onClick={handleReview}>{t("ui.submit_review")}</Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {isEditing ? (
-            <Card>
-              <CardHeader><CardTitle>{t("ui.edit_task")}</CardTitle></CardHeader>
-              <CardContent>
-                <form onSubmit={handleUpdate} className="space-y-4">
-                  <div>
-                    <label className="block text-sm mb-1">{t("ui.title")}</label>
-                    <input type="text" value={editForm.title} onChange={e => setEditForm({...editForm, title: e.target.value})} className="w-full border p-2 rounded" />
-                  </div>
-                  <div>
-                    <label className="block text-sm mb-1">{t("ui.description")}</label>
-                    <textarea rows={4} value={editForm.description} onChange={e => setEditForm({...editForm, description: e.target.value})} className="w-full border p-2 rounded" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm mb-1">{t("ui.price")}</label>
-                      <input type="number" step="0.01" value={editForm.price} onChange={e => setEditForm({...editForm, price: e.target.value})} className="w-full border p-2 rounded" />
-                    </div>
-                    <div>
-                      <label className="block text-sm mb-1">{t("ui.scheduled")}</label>
-                      <input type="datetime-local" value={editForm.scheduledFor} onChange={e => setEditForm({...editForm, scheduledFor: e.target.value})} className="w-full border p-2 rounded" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm mb-1">{t("ui.category")}</label>
-                    <select
-                      value={editForm.category}
-                      onChange={e => setEditForm({...editForm, category: e.target.value})}
-                      className="w-full border rounded-md p-2 bg-background"
-                    >
-                      <option value="">{t("ui.no_category")}</option>
-                      <option value="Home Services">{t("ui.home_services")}</option>
-                      <option value="Delivery">{t("ui.delivery")}</option>
-                      <option value="Tech Support">{t("ui.tech_support")}</option>
-                      <option value="Handyman">{t("ui.handyman")}</option>
-                      <option value="Cleaning">{t("ui.cleaning")}</option>
-                      <option value="Moving">{t("ui.moving")}</option>
-                      <option value="Other">{t("ui.other")}</option>
-                    </select>
-                  </div>
-                  <div className="pt-2">
-                    <label className="block text-sm font-medium mb-2">{t("ui.location")}</label>
-                    <LocationPicker 
-                       initialLocation={{
-                         address: editForm.address,
-                         landmark: editForm.landmark,
-                         city: editForm.city,
-                         state: editForm.state,
-                         locationLat: editForm.locationLat,
-                         locationLng: editForm.locationLng
-                       }}
-                       onLocationSelect={(loc) => {
-                         setEditForm(prev => ({ ...prev, ...loc }));
-                       }}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>{t("ui.cancel")}</Button>
-                    <Button type="submit">{t("ui.save_changes")}</Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader><CardTitle>{t("ui.description")}</CardTitle></CardHeader>
-              <CardContent className="whitespace-pre-wrap leading-relaxed text-slate-700">
-                {task.description}
-              </CardContent>
-            </Card>
-          )}
-
-          {service && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center justify-between">
-                  <span>{t("ui.structured_service")}{service.name}</span>
-                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-50">{t("ui.service_task")}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-slate-600">{service.description}</p>
-                {service.skills && service.skills.length > 0 ? (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-slate-700">{t("ui.required_skills")}</h4>
-                    <div className="flex gap-2 flex-wrap">
-                      {service.skills.map((skill: any) => {
-                        const hasSkill = workerProfile?.skills?.some((ws: any) => ws.id === skill.id);
-                        return (
-                          <Badge key={skill.id} variant={hasSkill ? "default" : "outline"} className={hasSkill ? "bg-green-100 text-green-700 hover:bg-green-100 border-none" : ""}>
-                            {skill.name} {hasSkill && "✓"}
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                    {currentUser?.role === 'WORKER' && (
-                      <p className="text-xs text-slate-500 mt-2">
-                        {t("ui.claimed_skills_are")}</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-sm text-slate-500 italic">{t("ui.this_service_requires")}</div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {task.serviceId === null && (
-            <Card>
-              <CardHeader><CardTitle className="text-lg flex items-center justify-between">
-                <span>{t("ui.legacy_task")}</span>
-                <Badge variant="outline" className="text-xs bg-slate-100 text-slate-700 hover:bg-slate-100">{t("ui.general")}</Badge>
-              </CardTitle></CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-600">
-                  {t("ui.this_is_a")}</p>
-              </CardContent>
-            </Card>
-          )}
-
-          {isOwner && task.status === "OPEN" && applications.length > 0 && (
-            <Card>
-              <CardHeader><CardTitle>{t("ui.applicants")}{applications.length})</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                {applications.map(app => (
-                  <div key={app.id} className="flex gap-4 p-4 border rounded-lg items-center">
-                    <Avatar className="h-12 w-12 border">
-                      <AvatarFallback className="bg-slate-100 text-slate-600">
-                        {app.tasker.profile?.fullName?.[0] || app.tasker.email[0].toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <Link to={`/user/${app.tasker.id}`} className="font-semibold hover:underline block">
-                        {app.tasker.profile?.fullName || 'Anonymous User'}
-                      </Link>
-                      <span className="text-sm text-amber-500 font-medium">★ {app.tasker.profile?.trustScore || "0.0"} {t("ui.score")}</span>
-                      {app.message && <p className="text-sm text-slate-600 mt-1">"{app.message}"</p>}
-                    </div>
-                    <Button onClick={() => handleSelectHelper(app.tasker.id)}>{t("ui.accept")}</Button>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {isOwner && task.status === "OPEN" && applications.length === 0 && (
-            <div className="p-6 border border-dashed rounded-lg text-center text-slate-500 bg-slate-50">
-              {t("ui.no_applicants_yet")}</div>
-          )}
-
-        </div>
-
-        <div className="md:col-span-1 space-y-6">
-          <Card>
-            <CardHeader><CardTitle className="text-lg">{t("ui.financials")}</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-500">{t("ui.gross_price")}</span>
-                <span className="font-medium">${Number(task.price).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-500">{t("ui.platform_fee")}</span>
-                <span className="font-medium text-amber-600">-${(Number(task.price) * 0.10).toFixed(2)}</span>
-              </div>
-              <div className="h-px w-full bg-slate-100" />
-              <div className="flex justify-between items-center">
-                <span className="font-semibold">{t("ui.net_payout")}</span>
-                <span className="font-bold text-green-600">${(Number(task.price) * 0.90).toFixed(2)}</span>
-              </div>
-              <div className="mt-4 pt-4 border-t border-slate-100">
-                <span className="text-xs text-slate-500 block mb-2">{t("ui.escrow_status")}</span>
-                {task.status === "OPEN" && <Badge variant="secondary">{t("ui.waiting_for_helper")}</Badge>}
-                {(task.status === "ACCEPTED" || task.status === "IN_PROGRESS" || task.status === "PROOF_SUBMITTED") && <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 uppercase border-none">{t("ui.locked")}</Badge>}
-                {task.status === "COMPLETED" && <Badge className="bg-green-100 text-green-700 hover:bg-green-100 uppercase border-none">{t("ui.released")}</Badge>}
-                {task.status === "CANCELLED" && task.taskerId && <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 uppercase border-none">{t("ui.refunded")}</Badge>}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader><CardTitle className="text-lg">{t("ui.requester")}</CardTitle></CardHeader>
-            <CardContent className="flex flex-col items-center text-center">
-              <Avatar className="h-16 w-16 mb-2">
-                <AvatarFallback className="bg-blue-100 text-blue-600">
-                  {task.requester.profile?.fullName?.[0] || task.requester.email[0].toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <Link to={`/user/${task.requester.id}`} className="font-semibold hover:underline">
-                {task.requester.profile?.fullName || 'Anonymous'}
-              </Link>
-              <p className="text-sm text-slate-500 mb-4">{task.requester.email}</p>
-              {task.requester.profile?.trustScore && (
-                <div className="flex items-center gap-1 text-sm text-amber-500 mb-2">
-                  <ShieldCheck className="w-4 h-4" /> {task.requester.profile.trustScore} {t("ui.trust_score")}</div>
-              )}
-            </CardContent>
-          </Card>
-
-           {task.tasker && (
-             <Card>
-             <CardHeader><CardTitle className="text-lg">{t("ui.assigned_tasker")}</CardTitle></CardHeader>
-             <CardContent className="flex flex-col items-center text-center">
-               <Avatar className="h-16 w-16 mb-2">
-                 <AvatarFallback className="bg-purple-100 text-purple-600">
-                   {task.tasker.profile?.fullName?.[0] || task.tasker.email[0].toUpperCase()}
-                 </AvatarFallback>
-               </Avatar>
-               <Link to={`/user/${task.tasker.id}`} className="font-semibold hover:underline">
-                 {task.tasker.profile?.fullName || 'Anonymous'}
-               </Link>
-               {(isOwner || isHelper) && (
-                 <Button variant="outline" className="w-full mt-4" onClick={() => navigate('/chat')}>{t("ui.message")}</Button>
-               )}
-             </CardContent>
-           </Card>
-          )}
-
-          {!isOwner && task.status === "OPEN" && (
-             isApplying ? (
-               <Card>
-                 <CardContent className="pt-6 space-y-4">
-                   <textarea
-                    placeholder="Why are you a good fit?"
-                    className="w-full border p-2 rounded text-sm"
-                    rows={3}
-                    value={applyMessage}
-                    onChange={e => setApplyMessage(e.target.value)}
-                   />
-                   {applyError && (
-                     <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm border border-red-100">
-                       <p className="font-semibold">{typeof applyError.error === 'string' ? applyError.error : JSON.stringify(applyError.error)}</p>
-                       {applyError.error === 'ACCOUNT_RESTRICTED' && (
-                         <p className="mt-1">{applyError.message}</p>
-                       )}
-                       {applyError.reason === 'MISSING_SKILLS' && applyError.missingSkills && (
-                         <p className="mt-1">{t("ui.missing_required_skills")}{applyError.missingSkills.join(", ")}</p>
-                       )}
-                       {applyError.reason === 'CROSS_FEDERATION' && (
-                         <p className="mt-1">{t("ui.you_must_belong")}</p>
-                       )}
-                       {applyError.reason === 'NO_ACTIVE_SOCIETY_MEMBERSHIP' && (
-                         <p className="mt-1">{t("ui.you_must_have")}</p>
-                       )}
-                       {applyError.reason === 'SERVICE_INACTIVE' && (
-                         <p className="mt-1">{t("ui.the_structured_service")}</p>
-                       )}
-                     </div>
-                   )}
-                   <div className="flex gap-2">
-                     <Button variant="outline" className="flex-1" onClick={() => { setIsApplying(false); setApplyError(null); }}>{t("ui.cancel")}</Button>
-                     <Button className="flex-1" onClick={handleApply}>{t("ui.confirm")}</Button>
-                   </div>
-                 </CardContent>
-               </Card>
-             ) : (
-               <Button className="w-full" size="lg" onClick={() => setIsApplying(true)} disabled={hasApplied}>
-                 {hasApplied ? "Already Applied" : t("task.apply")}
-               </Button>
-             )
-          )}
-        </div>
-      </div>
-    </div>
     </MapProvider>
   );
 }

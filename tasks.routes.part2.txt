@@ -1,0 +1,300 @@
+});
+
+// 3. GET /api/tasks/:id
+router.get("/:id", optionalAuth, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const task = await prisma.task.findUnique({
+      where: { id },
+      include: {
+        requester: {
+          select: { id: true, email: true, profile: { select: { fullName: true, trustScore: true, avatarUrl: true } } },
+        },
+        tasker: {
+          select: { id: true, email: true, profile: { select: { fullName: true, trustScore: true, avatarUrl: true } } },
+        },
+        dispute: true,
+        media: true
+      },
+    });
+
+    if (!task) {
+      return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
+    }
+
+    res.json({ task });
+  } catch (error: any) {
+    if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
+    res.status(500).json({ error: error.message || "Internal server error" });
+  }
+});
+
+// 4. PUT /api/tasks/:id
+const updateTaskSchema = z.object({
+  title: z.string().min(5).optional(),
+  description: z.string().min(10).optional(),
+  price: z.number().positive().optional(),
+  scheduledFor: z.string().datetime().optional(),
+  locationLat: z.number().optional(),
+  locationLng: z.number().optional(),
+  address: z.string().optional(),
+  landmark: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  category: z.string().optional(),
+});
+
+router.put("/:id", authenticate, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    const data = updateTaskSchema.parse(req.body);
+
+    const task = await prisma.task.findUnique({ where: { id } });
+    if (!task) return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
+    if (task.requesterId !== userId) return res.status(403).json({ error: "Unauthorized" }); console.log("403 Unauthorized");
+    if (task.status !== TaskStatus.OPEN) return res.status(400).json({ error: "Only OPEN tasks can be edited" });
+
+    const updatedTask = await prisma.task.update({
+      where: { id, version: task.version },
+      data: {
+        ...(data.title && { title: data.title }),
+        ...(data.description && { description: data.description }),
+        ...(data.price && { price: data.price }),
+        ...(data.scheduledFor && { scheduledFor: new Date(data.scheduledFor) }),
+        ...(data.locationLat && { locationLat: data.locationLat }),
+        ...(data.locationLng && { locationLng: data.locationLng }),
+        ...(data.address && { address: data.address }),
+        ...(data.landmark && { landmark: data.landmark }),
+        ...(data.city && { city: data.city }),
+        ...(data.state && { state: data.state }),
+        ...(data.category && { category: data.category }),
+        version: { increment: 1 }
+      },
+    }, { maxWait: 15000, timeout: 15000 });
+
+    res.json({ task: updatedTask });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.flatten() });
+    }
+    if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
+    res.status(500).json({ error: error.message || "Internal server error" });
+  }
+});
+
+// 5. POST /api/tasks/:id/cancel
+router.post("/:id/cancel", authenticate, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    const task = await prisma.task.findUnique({ where: { id } });
+    if (!task) return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
+    if (task.requesterId !== userId) return res.status(403).json({ error: "Unauthorized" }); console.log("403 Unauthorized");
+    if (task.status === TaskStatus.COMPLETED || task.status === TaskStatus.CANCELLED) {
+       return res.status(400).json({ error: "Task cannot be cancelled from current status." });
+    }
+
+    const updatedTask = await prisma.$transaction(async (tx) => {
+      const updated = await tx.task.update({
+        where: { id, version: task.version },
+        data: { 
+          status: TaskStatus.CANCELLED,
+          cancelledAt: new Date(),
+          version: { increment: 1 }
+        },
+      });
+
+      // If the task was already ACCEPTED or beyond, we locked funds
+      if (task.status !== TaskStatus.OPEN) {
+        await refundFundsTx(tx, {
+          taskId: task.id,
+          idempotencyKey: `ref_${task.id}`
+        });
+      }
+      
+      return updated;
+    }, { maxWait: 15000, timeout: 15000 });
+
+    try {
+      await updateMetricsAndTrust(prisma, task.requesterId);
+      if (task.taskerId) {
+        await updateMetricsAndTrust(prisma, task.taskerId);
+      }
+    } catch (e) {
+      console.error("Trust update failed in cancel", e?.message || e);
+    }
+
+    try {
+      if (task.taskerId) {
+        await prisma.notification.create({
+          data: {
+            userId: task.taskerId,
+            type: "TASK_UPDATE",
+            content: "The customer has cancelled the booking.",
+            relatedEntityId: task.id
+          }
+        });
+      }
+    } catch (e) {
+      console.error("Failed to notify tasker of cancellation", e?.message || e);
+    }
+
+    res.json({ task: updatedTask });
+  } catch (error: any) {
+    if (error instanceof WalletError) {
+      return res.status(400).json({ error: error.message });
+    }
+    if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
+    res.status(500).json({ error: error.message || "Internal server error" });
+  }
+});
+
+// Phase 4 Routes
+
+// 6. POST /api/tasks/:id/apply
+router.post("/:id/apply", authenticate, async (req: any, res: any) => { console.log("apply route hit");
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    const task = await prisma.task.findUnique({ where: { id } });
+    if (!task) return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
+    if (task.requesterId === userId) return res.status(400).json({ error: "Cannot apply to own task" });
+    if (task.status !== TaskStatus.OPEN) return res.status(400).json({ error: "Task is not open" }); console.log("400 Task not open");
+
+    const kyc = await prisma.kYCVerification.findUnique({ where: { userId } });
+    if (!kyc || kyc.status !== "VERIFIED") {
+      return res.status(403).json({ error: "Must be KYC verified to apply for tasks" });
+    }
+
+    const existingApplication = await prisma.taskApplication.findUnique({
+      where: {
+        taskId_taskerId: { taskId: id, taskerId: userId }
+      }
+    });
+
+    if (existingApplication) {
+      return res.status(400).json({ error: "Already applied" });
+    }
+
+    const eligibility = await checkWorkerEligibility(userId, id);
+    if (!eligibility.eligible) {
+      if (eligibility.reason === "TRUST_SCORE_TOO_LOW") {
+        return res.status(403).json({
+          error: "ACCOUNT_RESTRICTED",
+          message: "Your account is temporarily restricted from applying for new tasks because your trust score is below the minimum required level.",
+          trustScore: eligibility.trustScore,
+          minimumTrustScore: MIN_TRUST_SCORE
+        });
+      }
+      return res.status(403).json({
+        error: "Worker is not eligible for this task",
+        reason: eligibility.reason,
+        missingSkills: eligibility.missingSkills
+      });
+    }
+
+    const application = await prisma.taskApplication.create({
+      data: {
+        taskId: id,
+        taskerId: userId,
+        message: req.body.message
+      }
+    });
+
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: task.requesterId,
+          type: "TASK_UPDATE",
+          content: "A worker has applied for your task.",
+          relatedEntityId: task.id
+        }
+      });
+    } catch (e) {
+      console.error("Failed to notify customer of task application", e?.message || e);
+    }
+
+    res.status(201).json({ application });
+  } catch (error: any) {
+    if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
+    res.status(500).json({ error: error.message || "Internal server error" });
+  }
+});
+
+// 7. GET /api/tasks/:id/applications
+router.get("/:id/applications", authenticate, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    const task = await prisma.task.findUnique({ where: { id } });
+    if (!task) return res.status(404).json({ error: "Task not found" }); console.log("404 Task not found");
+    
+    let whereClause: any = { taskId: id };
+    if (task.requesterId !== userId) {
+      whereClause.taskerId = userId;
+    }
+
+    const applications = await prisma.taskApplication.findMany({
+      where: whereClause,
+      include: {
+        tasker: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: { fullName: true, trustScore: true, avatarUrl: true }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    }, { maxWait: 15000, timeout: 15000 });
+
+    res.json({ applications });
+  } catch (error: any) {
+    if (error.code === "P2025") return res.status(409).json({ error: "Conflict: The record was updated or deleted by another process." });
+    console.error("SELECT HELPER 500 ERROR:", error?.message || error);
+    res.status(500).json({ error: error.message || "Internal server error" });
+  }
+});
+
+// 7.5 POST /api/tasks/:id/emergency-accept
+router.post("/:id/emergency-accept", authenticate, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const taskerId = req.user.userId;
+
+    const task = await prisma.task.findUnique({ where: { id } });
+    if (!task) return res.status(404).json({ error: "Task not found" });
+    if (!task.isEmergency) return res.status(400).json({ error: "Not an emergency task" });
+    if (task.status !== TaskStatus.OPEN) return res.status(409).json({ error: "Task already assigned or closed" });
+
+    // Validate worker eligibility
+    const { checkWorkerEligibility } = await import("../lib/workerEligibility.js");
+    const eligibility = await checkWorkerEligibility(taskerId, task.id);
+    if (!eligibility.eligible) {
+       return res.status(403).json({ error: "Not eligible for this emergency", reason: eligibility.reason });
+    }
+
+    const updatedTask = await prisma.$transaction(async (tx) => {
+      // OCC atomic update -> locks to one winner
+      const updated = await tx.task.update({
+        where: { id, status: TaskStatus.OPEN, version: task.version },
+        data: {
+          taskerId,
+          status: TaskStatus.ACCEPTED,
+          version: { increment: 1 }
+        }
+      });
+
+      const price = Number(updated.price);
+      if (price > 0) {
+        const requesterWallet = await tx.wallet.findUnique({ where: { userId: String(updated.requesterId) } });

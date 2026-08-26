@@ -29,6 +29,32 @@ const authenticate = (req: any, res: any, next: any) => {
 
 router.use(authenticate);
 
+import { addClient, removeClient } from "../lib/sse.js";
+
+// GET /api/notifications/stream
+router.get("/stream", (req: any, res: any) => {
+  const userId = req.user.userId;
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  addClient(userId, res);
+
+  // Send initial connection success message
+  res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
+
+  const keepAlive = setInterval(() => {
+    res.write(':\n\n'); // SSE comment for keep-alive
+  }, 30000);
+
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    removeClient(userId, res);
+  });
+});
+
 // GET /api/notifications
 router.get("/", async (req: any, res: any) => {
   try {

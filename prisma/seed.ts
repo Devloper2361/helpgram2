@@ -183,6 +183,34 @@ async function main() {
           }
         });
       }
+
+      // Automatically create VERIFIED certifications for demo workers' claimed skills
+      if (verificationStatus === VerificationStatus.VERIFIED) {
+        const currentProfile = await prisma.profile.findUnique({ where: { userId: user.id } });
+        if (currentProfile) {
+          for (const s of helperSkills) {
+            const skillId = skills[s].id;
+            const existingCert = await prisma.certification.findUnique({
+              where: { profileId_skillId: { profileId: currentProfile.id, skillId } }
+            });
+            if (!existingCert) {
+               await prisma.certification.create({
+                 data: {
+                   profileId: currentProfile.id,
+                   skillId,
+                   status: VerificationStatus.VERIFIED,
+                   verifiedAt: new Date()
+                 }
+               });
+            } else if (existingCert.status !== VerificationStatus.VERIFIED) {
+               await prisma.certification.update({
+                 where: { id: existingCert.id },
+                 data: { status: VerificationStatus.VERIFIED, verifiedAt: new Date() }
+               });
+            }
+          }
+        }
+      }
     }
 
     return user;

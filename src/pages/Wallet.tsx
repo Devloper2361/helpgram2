@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowDownRight, ArrowUpRight, DollarSign, Lock, Banknote, Landmark, Smartphone } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "../i18n";
+import { cn } from "@/lib/utils";
 
 declare global {
   interface Window {
@@ -240,7 +241,7 @@ export default function WalletPage() {
             <div className="flex gap-2 mt-4">
                {/* Withdraw Dialog */}
                <Dialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
-                 <DialogTrigger render={<Button variant="secondary" className="w-full bg-white text-blue-600 hover:bg-blue-50" disabled={payoutMethods.length === 0} />}>
+                 <DialogTrigger className="w-full py-2 px-4 rounded-md text-sm font-semibold bg-white text-blue-600 hover:bg-blue-50 cursor-pointer disabled:opacity-50 inline-flex items-center justify-center" disabled={payoutMethods.length === 0}>
                    {t("ui.withdraw")}</DialogTrigger>
                  <DialogContent className="sm:max-w-[400px]">
                    <form onSubmit={handleWithdraw}>
@@ -280,7 +281,7 @@ export default function WalletPage() {
 
                {/* Deposit Dialog */}
                <Dialog open={isDepositOpen} onOpenChange={setIsDepositOpen}>
-                 <DialogTrigger render={<Button variant="outline" className="w-full border-blue-400 text-white hover:bg-blue-500" />}>
+                 <DialogTrigger className="w-full py-2 px-4 rounded-md text-sm font-semibold border border-blue-400 text-white hover:bg-blue-500 cursor-pointer inline-flex items-center justify-center">
                    {t("ui.deposit")}</DialogTrigger>
                  <DialogContent className="sm:max-w-[400px]">
                    <form onSubmit={handleDeposit}>

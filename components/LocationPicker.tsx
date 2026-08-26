@@ -145,12 +145,6 @@ function LocationPickerInner({ onLocationSelect, initialLocation }: LocationPick
           setMarkerPos(pos);
           map.panTo(pos);
           map.setZoom(15);
-          const initialLoc = {
-            address: '', landmark: '', city: '', state: '',
-            locationLat: latLng.lat, locationLng: latLng.lng
-          };
-          setLocationData(initialLoc);
-          onLocationSelect(initialLoc);
           setLocationData(newLoc);
           onLocationSelect(newLoc);
           return;
@@ -314,7 +308,7 @@ function LocationPickerInner({ onLocationSelect, initialLocation }: LocationPick
         <Map
           defaultCenter={{ lat: 20.2961, lng: 85.8245 }} // Default Bhubaneswar
           defaultZoom={11}
-          mapId="LOCATION_PICKER_MAP"
+          mapId="DEMO_MAP_ID"
           internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
           style={{ width: '100%', height: '300px' }}
           disableDefaultUI={true}

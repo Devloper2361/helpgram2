@@ -138,7 +138,7 @@ export default function WelfareAdmin() {
                   </div>
                   
                   <Dialog>
-                    <DialogTrigger render={<Button variant="outline" size="sm" onClick={() => openProfileDialog(worker)} />}>
+                    <DialogTrigger className="py-1.5 px-3 rounded-md text-xs font-semibold border border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer inline-flex items-center justify-center" onClick={() => openProfileDialog(worker)}>
                       Edit Coverage
                     </DialogTrigger>
                     <DialogContent>
