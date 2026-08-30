@@ -6,6 +6,14 @@ import {
 
 const prisma = new PrismaClient();
 
+
+// Deterministic PRNG for reproducible seeds
+let _seed = 12345;
+function pseudoRandom() {
+  _seed = (_seed * 9301 + 49297) % 233280;
+  return _seed / 233280;
+}
+
 async function main() {
   const hash = async (pw: string) => await bcrypt.hash(pw, 10);
 
@@ -238,7 +246,56 @@ async function main() {
   const helperLowTrust = await upsertUser("helper.lowtrust@helpgram.local", "Helper@12345", UserRole.WORKER, "Low Trust Helper", 10, 20.2990, 85.8270, VerificationStatus.VERIFIED, ["Delivery"], 0.0);
 
 
+  
+  // Generated extra workers for spatial testing
+  for (let i = 1; i <= 15; i++) {
+    const skillsList = i % 3 === 0 ? ["Plumbing", "Electrical"] : (i % 2 === 0 ? ["Cleaning", "Delivery"] : ["Computer Repair"]);
+    await upsertUser(
+      `worker${i}@helpgram.local`, 
+      "Worker@12345", 
+      UserRole.WORKER, 
+      `Worker ${i}`, 
+      Math.floor(pseudoRandom() * 20) + 70, 
+      20.28 + pseudoRandom() * 0.05, 
+      85.80 + pseudoRandom() * 0.05, 
+      VerificationStatus.VERIFIED, 
+      skillsList, 
+      0.0
+    );
+  }
+
   // 4. Tasks (Seed if they don't exist)
+  
+  // Generate 40 historical tasks
+  const now = Date.now();
+  for (let i = 1; i <= 40; i++) {
+    const isRecent = i <= 15; // 15 tasks in last 7 days, 25 in last 30 days
+    const daysAgo = isRecent ? Math.floor(pseudoRandom() * 7) : Math.floor(pseudoRandom() * 23) + 7;
+    const taskDate = new Date(now - daysAgo * 24 * 60 * 60 * 1000);
+    
+    // Mix services
+    const srv = i % 4 === 0 ? serviceComputer : serviceCleaning;
+    
+    let task = await prisma.task.findFirst({ where: { title: `Historical Task ${i}` } });
+    if (!task) {
+      await prisma.task.create({
+        data: {
+          requesterId: customer.id,
+          serviceId: srv.id,
+          title: `Historical Task ${i}`,
+          description: `Historical description for task ${i}`,
+          price: srv.basePrice,
+          status: TaskStatus.COMPLETED,
+          scheduledFor: taskDate,
+          createdAt: taskDate,
+          locationLat: 20.28 + pseudoRandom() * 0.05,
+          locationLng: 85.80 + pseudoRandom() * 0.05,
+          address: "Bhubaneswar",
+        }
+      });
+    }
+  }
+
   let task1 = await prisma.task.findFirst({ where: { title: "Need help with home cleaning" } });
   if (!task1) {
     task1 = await prisma.task.create({

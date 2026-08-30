@@ -1,4 +1,4 @@
-import { UserRole, TaskStatus, DisputeStatus, TransactionType, TransactionStatus, VerificationStatus, NotificationType, MessageType, OrganizationStatus, MembershipStatus, MembershipRole, ClaimStatus } from "../lib/enums.js";
+import { UserRole, TaskStatus, DisputeStatus, TransactionType, TransactionStatus, VerificationStatus, NotificationType, MessageType, OrganizationStatus, MembershipStatus, MembershipRole, ClaimStatus, EscrowStatus } from "../lib/enums.js";
 import { Router } from "express";
 import { z } from "zod";
 import { PrismaClient } from "@prisma/client";
@@ -118,17 +118,12 @@ router.post("/", authenticate, async (req: any, res: any) => {
         landmark: data.landmark,
         city: data.city,
         state: data.state,
-        category: data.category,
-        isEmergency: data.isEmergency || false,
+        
+        
         status: TaskStatus.OPEN,
       },
     });
 
-    if (task.isEmergency) {
-      import("../lib/dispatch.js").then(({ triggerEmergencyDispatch }) => {
-        triggerEmergencyDispatch(task).catch(console.error);
-      }).catch(console.error);
-    }
 
     res.status(201).json({ task });
   } catch (error: any) {
@@ -150,12 +145,12 @@ router.get("/", optionalAuth, async (req: any, res: any) => {
     const skip = (pageNum - 1) * limitNum;
     const take = limitNum;
 
-    const where: any = { taskType: "HOUSEHOLD" };
+    const where: any = {  };
     if (status) {
       where.status = (status as string).toUpperCase() as TaskStatus;
     }
     if (category && category !== "ALL") {
-      where.category = category as string;
+      where.service = { category: { name: category as string } };
     }
     if (minPrice || maxPrice) {
       where.price = {};
@@ -168,7 +163,7 @@ router.get("/", optionalAuth, async (req: any, res: any) => {
         { description: { contains: String(search), mode: "insensitive" } },
         { address: { contains: String(search), mode: "insensitive" } },
         { city: { contains: String(search), mode: "insensitive" } },
-        { category: { contains: String(search), mode: "insensitive" } },
+        { service: { category: { name: { contains: String(search), mode: "insensitive" } } } },
       ];
     }
 
@@ -250,7 +245,6 @@ router.get("/", optionalAuth, async (req: any, res: any) => {
       skip,
       take,
       orderBy: [
-        { isEmergency: "desc" },
         { createdAt: "desc" }
       ],
       include: {
@@ -286,7 +280,6 @@ router.get("/my-tasks", authenticate, async (req: any, res: any) => {
 
     const helpingTasks = await prisma.task.findMany({
       where: {
-        taskType: { not: "INSTITUTIONAL_PARENT" },
         OR: [
           { taskerId: userId },
           { applications: { some: { taskerId: userId } } }
@@ -360,13 +353,13 @@ router.put("/:id", authenticate, async (req: any, res: any) => {
 
     const task = await prisma.task.findUnique({ where: { id } });
     if (!task) return res.status(404).json({ error: "Task not found" });
-    if (task.taskType === "INSTITUTIONAL_PARENT") return res.status(400).json({ error: "Institutional parent tasks cannot be executed directly." }); console.log("404 Task not found");
+    
     if (task.requesterId !== userId) return res.status(403).json({ error: "Unauthorized" }); console.log("403 Unauthorized");
     if (task.status !== TaskStatus.OPEN) return res.status(400).json({ error: "Only OPEN tasks can be edited" });
 
     const updatedTask = await prisma.task.update({
       where: {
-        id, version: task.version },
+        id },
       data: {
         ...(data.title && { title: data.title }),
         ...(data.description && { description: data.description }),
@@ -378,8 +371,7 @@ router.put("/:id", authenticate, async (req: any, res: any) => {
         ...(data.landmark && { landmark: data.landmark }),
         ...(data.city && { city: data.city }),
         ...(data.state && { state: data.state }),
-        ...(data.category && { category: data.category }),
-        version: { increment: 1 }
+        ...(data.category && { category: data.category })
       },
     }, { maxWait: 15000, timeout: 15000 });
 
@@ -402,20 +394,19 @@ router.post("/:id/cancel", authenticate, async (req: any, res: any) => {
 
     const task = await prisma.task.findUnique({ where: { id } });
     if (!task) return res.status(404).json({ error: "Task not found" });
-    if (task.taskType === "INSTITUTIONAL_PARENT") return res.status(400).json({ error: "Institutional parent tasks cannot be executed directly." }); console.log("404 Task not found");
+    
     if (task.requesterId !== userId) return res.status(403).json({ error: "Unauthorized" }); console.log("403 Unauthorized");
-    if (task.status === TaskStatus.COMPLETED || task.status === TaskStatus.CANCELLED) {
-       return res.status(400).json({ error: "Task cannot be cancelled from current status." });
+    if (task.status !== TaskStatus.OPEN) {
+       return res.status(400).json({ error: "Task cannot be cancelled from current status. Only OPEN tasks can be cancelled unilaterally." });
     }
 
     const updatedTask = await prisma.$transaction(async (tx) => {
       const updated = await tx.task.update({
         where: {
-        id, version: task.version },
+        id },
         data: { 
           status: TaskStatus.CANCELLED,
-          cancelledAt: new Date(),
-          version: { increment: 1 }
+          cancelledAt: new Date()
         },
       });
 
@@ -475,7 +466,7 @@ router.post("/:id/apply", authenticate, async (req: any, res: any) => { console.
 
     const task = await prisma.task.findUnique({ where: { id } });
     if (!task) return res.status(404).json({ error: "Task not found" });
-    if (task.taskType === "INSTITUTIONAL_PARENT") return res.status(400).json({ error: "Institutional parent tasks cannot be executed directly." }); console.log("404 Task not found");
+    
     if (task.requesterId === userId) return res.status(400).json({ error: "Cannot apply to own task" });
     if (task.status !== TaskStatus.OPEN) return res.status(400).json({ error: "Task is not open" }); console.log("400 Task not open");
 
@@ -548,7 +539,7 @@ router.get("/:id/applications", authenticate, async (req: any, res: any) => {
 
     const task = await prisma.task.findUnique({ where: { id } });
     if (!task) return res.status(404).json({ error: "Task not found" });
-    if (task.taskType === "INSTITUTIONAL_PARENT") return res.status(400).json({ error: "Institutional parent tasks cannot be executed directly." }); console.log("404 Task not found");
+    
     
     let whereClause: any = { taskId: id };
     if (task.requesterId !== userId) {
@@ -587,8 +578,7 @@ router.post("/:id/emergency-accept", authenticate, async (req: any, res: any) =>
 
     const task = await prisma.task.findUnique({ where: { id } });
     if (!task) return res.status(404).json({ error: "Task not found" });
-    if (task.taskType === "INSTITUTIONAL_PARENT") return res.status(400).json({ error: "Institutional parent tasks cannot be executed directly." });
-    if (!task.isEmergency) return res.status(400).json({ error: "Not an emergency task" });
+    
     if (task.status !== TaskStatus.OPEN) return res.status(409).json({ error: "Task already assigned or closed" });
 
     // Validate worker eligibility
@@ -602,11 +592,10 @@ router.post("/:id/emergency-accept", authenticate, async (req: any, res: any) =>
       // OCC atomic update -> locks to one winner
       const updated = await tx.task.update({
         where: {
-        id, status: TaskStatus.OPEN, version: task.version },
+        id, status: TaskStatus.OPEN },
         data: {
           taskerId,
-          status: TaskStatus.ACCEPTED,
-          version: { increment: 1 }
+          status: TaskStatus.ACCEPTED
         }
       });
 
@@ -619,7 +608,7 @@ router.post("/:id/emergency-accept", authenticate, async (req: any, res: any) =>
           walletId: requesterWallet.id,
           taskId: id,
           amount: price,
-          idempotencyKey: `lock_${id}_${updated.version}`
+          idempotencyKey: `lock_${id}`
         });
       }
 
@@ -660,6 +649,41 @@ router.post("/:id/emergency-accept", authenticate, async (req: any, res: any) =>
   }
 });
 
+// 8b. POST /api/tasks/:id/reject-helper
+router.post("/:id/reject-helper", authenticate, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    const { taskerId } = req.body;
+
+    const task = await prisma.task.findUnique({ where: { id } });
+    if (!task) return res.status(404).json({ error: "Task not found" });
+    if (task.requesterId !== userId) return res.status(403).json({ error: "Only the requester can reject applicants" });
+    if (task.status !== TaskStatus.OPEN) return res.status(400).json({ error: "Task is not open" });
+
+    // Delete the application
+    await prisma.taskApplication.deleteMany({
+      where: { taskId: id, taskerId }
+    });
+
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: taskerId,
+          type: "TASK_UPDATE",
+          content: `Your application for task "${task.title}" was not selected.`,
+          relatedEntityId: task.id
+        }
+      });
+    } catch (e) {}
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("REJECT HELPER 500 ERROR:", error?.message || error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // 8. POST /api/tasks/:id/select-helper
 
 router.post("/:id/select-helper", authenticate, async (req: any, res: any) => {
@@ -673,7 +697,7 @@ router.post("/:id/select-helper", authenticate, async (req: any, res: any) => {
 
     const task = await prisma.task.findUnique({ where: { id } });
     if (!task) return res.status(404).json({ error: "Task not found" });
-    if (task.taskType === "INSTITUTIONAL_PARENT") return res.status(400).json({ error: "Institutional parent tasks cannot be executed directly." }); console.log("404 Task not found");
+    
     if (task.requesterId !== userId) return res.status(403).json({ error: "Unauthorized" }); console.log("403 Unauthorized");
     if (task.status !== TaskStatus.OPEN) return res.status(400).json({ error: "Task is not open" }); console.log("400 Task not open");
 
@@ -688,11 +712,10 @@ router.post("/:id/select-helper", authenticate, async (req: any, res: any) => {
     const updatedTask = await prisma.$transaction(async (tx) => {
       const updated = await tx.task.update({
         where: {
-        id, version: task.version },
+        id },
         data: {
           taskerId,
-          status: TaskStatus.ACCEPTED,
-          version: { increment: 1 }
+          status: TaskStatus.ACCEPTED
         }
       });
 
@@ -754,17 +777,16 @@ router.post("/:id/start", authenticate, async (req: any, res: any) => {
 
     const task = await prisma.task.findUnique({ where: { id } });
     if (!task) return res.status(404).json({ error: "Task not found" });
-    if (task.taskType === "INSTITUTIONAL_PARENT") return res.status(400).json({ error: "Institutional parent tasks cannot be executed directly." }); console.log("404 Task not found");
+    
     if (task.taskerId !== userId) return res.status(403).json({ error: "Unauthorized. Only accepted helper can start." });
     if (task.status !== TaskStatus.ACCEPTED) return res.status(400).json({ error: "Task cannot be started from current status." });
 
     const updatedTask = await prisma.task.update({
       where: {
-        id, version: task.version },
+        id },
       data: {
         status: TaskStatus.IN_PROGRESS,
-        startedAt: new Date(),
-        version: { increment: 1 }
+        startedAt: new Date()
       }
     }, { maxWait: 15000, timeout: 15000 });
 
@@ -836,7 +858,7 @@ router.post("/:id/submit-proof", authenticate, upload.single('evidence'), async 
 
     const task = await prisma.task.findUnique({ where: { id } });
     if (!task) return res.status(404).json({ error: "Task not found" });
-    if (task.taskType === "INSTITUTIONAL_PARENT") return res.status(400).json({ error: "Institutional parent tasks cannot be executed directly." }); console.log("404 Task not found");
+    
     if (task.taskerId !== userId) return res.status(403).json({ error: "Unauthorized. Only accepted helper can submit proof." });
     if (task.status !== TaskStatus.IN_PROGRESS) return res.status(400).json({ error: "Cannot submit proof from current status." });
 
@@ -857,10 +879,9 @@ router.post("/:id/submit-proof", authenticate, upload.single('evidence'), async 
       });
       return await tx.task.update({
         where: {
-        id, version: task.version },
+        id },
         data: {
-          status: TaskStatus.PROOF_SUBMITTED,
-          version: { increment: 1 }
+          status: TaskStatus.PROOF_SUBMITTED
         }
       });
     }, { maxWait: 15000, timeout: 15000 });
@@ -894,7 +915,7 @@ router.post("/:id/approve", authenticate, async (req: any, res: any) => {
 
     const task = await prisma.task.findUnique({ where: { id } });
     if (!task) return res.status(404).json({ error: "Task not found" });
-    if (task.taskType === "INSTITUTIONAL_PARENT") return res.status(400).json({ error: "Institutional parent tasks cannot be executed directly." }); console.log("404 Task not found");
+    
     if (task.requesterId !== userId) return res.status(403).json({ error: "Unauthorized. Only owner can approve." });
     if (task.status !== TaskStatus.PROOF_SUBMITTED) {
        return res.status(400).json({ error: "Task must have proof submitted to be approved." });
@@ -903,11 +924,10 @@ router.post("/:id/approve", authenticate, async (req: any, res: any) => {
     const updatedTask = await prisma.$transaction(async (tx) => {
       const updated = await tx.task.update({
         where: {
-        id, version: task.version },
+        id },
         data: {
           status: TaskStatus.COMPLETED,
-          completedAt: new Date(),
-          version: { increment: 1 }
+          completedAt: new Date()
         }
       });
 
@@ -976,7 +996,7 @@ router.post("/:id/review", authenticate, async (req: any, res: any) => {
 
     const task = await prisma.task.findUnique({ where: { id } });
     if (!task) return res.status(404).json({ error: "Task not found" });
-    if (task.taskType === "INSTITUTIONAL_PARENT") return res.status(400).json({ error: "Institutional parent tasks cannot be executed directly." }); console.log("404 Task not found");
+    
     if (task.status !== TaskStatus.COMPLETED) {
       return res.status(400).json({ error: "Task must be COMPLETED to leave a review." });
     }
@@ -1049,9 +1069,9 @@ router.post("/:id/dispute", authenticate, disputeLimiter, async (req: any, res: 
 
     const task = await prisma.task.findUnique({ where: { id } });
     if (!task) return res.status(404).json({ error: "Task not found" });
-    if (task.taskType === "INSTITUTIONAL_PARENT") return res.status(400).json({ error: "Institutional parent tasks cannot be executed directly." }); console.log("404 Task not found");
+    
 
-    const allowedStatuses: TaskStatus[] = [TaskStatus.ACCEPTED, TaskStatus.IN_PROGRESS, TaskStatus.PROOF_SUBMITTED, TaskStatus.COMPLETED];
+    const allowedStatuses: TaskStatus[] = [TaskStatus.ACCEPTED, TaskStatus.IN_PROGRESS, TaskStatus.PROOF_SUBMITTED];
     if (!allowedStatuses.includes(task.status)) {
        return res.status(400).json({ error: "Task cannot be disputed from current status." });
     }
@@ -1083,17 +1103,16 @@ router.post("/:id/dispute", authenticate, disputeLimiter, async (req: any, res: 
       if (escrowEntry && escrowEntry.status === "LOCKED") {
         await tx.escrowEntry.update({
           where: {
-        id: escrowEntry.id, version: escrowEntry.version },
-          data: { status: TaskStatus.DISPUTED, version: { increment: 1 } }
+        id: escrowEntry.id },
+          data: { status: EscrowStatus.DISPUTED }
         });
       }
 
       const updated = await tx.task.update({
         where: {
-        id: task.id, version: task.version },
+        id: task.id },
         data: {
-          status: TaskStatus.DISPUTED,
-          version: { increment: 1 }
+          status: TaskStatus.DISPUTED
         },
         include: { dispute: true }
       });
@@ -1163,7 +1182,7 @@ router.get("/:id/invoice", authenticate, async (req: any, res: any) => {
     });
 
     if (!task) return res.status(404).json({ error: "Task not found" });
-    if (task.taskType === "INSTITUTIONAL_PARENT") return res.status(400).json({ error: "Institutional parent tasks cannot be executed directly." }); console.log("404 Task not found");
+    
     const platformRevenueRecord = await prisma.platformRevenue.findUnique({ where: { taskId: id } });
     task.platformRevenue = platformRevenueRecord;
     

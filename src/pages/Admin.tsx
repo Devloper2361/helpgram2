@@ -6,12 +6,28 @@ import { Button } from "@/components/ui/button";
 import { ShieldAlert, CheckCircle, Activity, Banknote } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "../i18n";
+import { toast } from "sonner";
 
 export default function AdminPage() {
     const { t } = useTranslation();
   const [disputes, setDisputes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [partialState, setPartialState] = useState<{ id: string, rAmt: string, tAmt: string } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText: string;
+    variant: "default" | "destructive" | "success";
+    onConfirm: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    confirmText: "",
+    variant: "default",
+    onConfirm: async () => {},
+  });
 
   useEffect(() => {
     fetchDisputes();
@@ -29,19 +45,35 @@ export default function AdminPage() {
   }
 
   const handleAction = async (id: string, action: string, body?: any) => {
-    if (!confirm(`Confirm ${action}?`)) return;
     try {
       const res = await fetch(`/api/admin/disputes/${id}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         ...(body ? { body: JSON.stringify(body) } : {})
       });
-      if (res.ok) fetchDisputes();
-      else {
+      if (res.ok) {
+        toast.success(`Action '${action}' completed successfully`);
+        fetchDisputes();
+      } else {
         const d = await res.json();
-        alert(d.error);
+        toast.error(d.error || "Action failed");
       }
-    } catch(e) {}
+    } catch(e: any) {
+      toast.error(e?.message || "An unexpected error occurred");
+    } finally {
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+    }
+  };
+
+  const confirmAction = (id: string, action: string, body?: any) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Confirm Action",
+      description: `Are you sure you want to perform '${action}' on this dispute?`,
+      confirmText: "Confirm",
+      variant: action === 'refund' ? 'destructive' : 'default',
+      onConfirm: () => handleAction(id, action, body),
+    });
   };
 
   const activeDisputes = disputes.filter(d => d.status === "PENDING_REVIEW" || d.status === "IN_MEDIATION");
@@ -54,6 +86,16 @@ export default function AdminPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
+                <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Skill Certifications</CardTitle>
+            <CheckCircle className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">Review</div>
+            <Link to="/admin/certifications" className="text-xs text-blue-500 hover:underline">Manage Worker Certifications →</Link>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t("ui.open_disputes")}</CardTitle>
@@ -112,15 +154,15 @@ export default function AdminPage() {
                     {d.status === "PENDING_REVIEW" || d.status === "IN_MEDIATION" ? (
                       <div className="space-y-2">
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => handleAction(d.id, 'refund')}>{t("ui.refund_requester")}</Button>
-                          <Button size="sm" variant="outline" onClick={() => handleAction(d.id, 'payout')}>{t("ui.pay_tasker_net")}</Button>
+                          <Button size="sm" variant="outline" onClick={() => confirmAction(d.id, 'refund')}>{t("ui.refund_requester")}</Button>
+                          <Button size="sm" variant="outline" onClick={() => confirmAction(d.id, 'payout')}>{t("ui.pay_tasker_net")}</Button>
                         </div>
                         {partialState?.id === d.id ? (
                           <div className="flex gap-2 items-center mt-2 border p-2 rounded bg-slate-50">
                             <input placeholder="Req Amt" className="w-20 px-2 py-1 border text-sm" value={partialState.rAmt} onChange={e => setPartialState({...partialState, rAmt: e.target.value})} />
                             <input placeholder="Task Amt" className="w-20 px-2 py-1 border text-sm" value={partialState.tAmt} onChange={e => setPartialState({...partialState, tAmt: e.target.value})} />
                             <Button size="sm" onClick={() => {
-                              handleAction(d.id, 'partial-release', { requesterAmount: Number(partialState.rAmt), taskerAmount: Number(partialState.tAmt) });
+                              confirmAction(d.id, 'partial-release', { requesterAmount: Number(partialState.rAmt), taskerAmount: Number(partialState.tAmt) });
                               setPartialState(null);
                             }}>{t("ui.confirm_split")}</Button>
                             <Button size="sm" variant="ghost" onClick={() => setPartialState(null)}>X</Button>
@@ -139,6 +181,37 @@ export default function AdminPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Modal: Generic Confirmation Dialog */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <h3 className="text-lg font-bold text-slate-900">{confirmModal.title}</h3>
+            <p className="text-sm text-slate-600 leading-relaxed">{confirmModal.description}</p>
+            <div className="flex gap-2 justify-end pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+              >
+                {t("ui.cancel")}
+              </Button>
+              <Button
+                variant={confirmModal.variant === "destructive" ? "destructive" : "default"}
+                className={
+                  confirmModal.variant === "success"
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                    : confirmModal.variant === "destructive"
+                    ? "bg-red-600 hover:bg-red-700 text-white font-bold"
+                    : "bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                }
+                onClick={confirmModal.onConfirm}
+              >
+                {confirmModal.confirmText}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

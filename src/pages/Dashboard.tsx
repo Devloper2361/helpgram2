@@ -65,7 +65,7 @@ export default function DashboardPage() {
             <CardTitle className="text-sm font-medium">{t("ui.trust_score")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{Number(trustScore).toFixed(1)}/5.0</div>
+            <div className="text-2xl font-bold">{Number(trustScore).toFixed(1).replace(/\.0$/, '')}/100</div>
             <p className="text-xs text-muted-foreground">
               {t("ui.based_on_platform")}</p>
           </CardContent>

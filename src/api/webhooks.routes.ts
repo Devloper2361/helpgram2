@@ -80,10 +80,9 @@ async function handleSuccessfulDeposit(txId: string, orderId: string) {
     if (!wallet) throw new Error("Wallet not found");
 
     await tx.wallet.update({
-      where: { id: wallet.id, version: wallet.version },
+      where: { id: wallet.id },
       data: { 
-        balanceAvailable: { increment: transaction.amount },
-        version: { increment: 1 }
+        balanceAvailable: { increment: transaction.amount }
       }
     });
   });

@@ -384,7 +384,7 @@ export const hi = {
   "moderate_pressure": "मध्यम दबाव",
   "healthy_low_pressure": "सामान्य / कम दबाव",
   "demand_forecast_days": "मांग पूर्वानुमान (7 दिन)",
-  "predicted_demand": "अनुमानित मांग",
+  "predicted_demand": "आगामी मांग",
   "required_workers": "आवश्यक कर्मचारी",
   "worker_shortage": "कर्मचारियों की कमी",
   "recommended_allocation": "अनुशंसित आवंटन",

@@ -22,6 +22,7 @@ import aiRoutes from "./src/api/ai.routes.js";
 import intelligenceRoutes from "./src/api/intelligence.routes.js";
 import certificationsRoutes from "./src/api/certifications.routes.js";
 import { welfareRoutes } from "./src/api/welfare.routes.js";
+import institutionalRoutes from "./src/api/institutional.routes.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
@@ -68,6 +69,7 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/intelligence", intelligenceRoutes);
 app.use("/api/certifications", certificationsRoutes);
 app.use("/api/welfare", welfareRoutes);
+app.use("/api/institutional", institutionalRoutes);
 
 app.get("/api/geocode", async (req, res) => {
   try {

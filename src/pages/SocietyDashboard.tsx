@@ -1,14 +1,24 @@
+import { WorkforceIntelligenceTab } from "../components/WorkforceIntelligenceTab";
+import { InstitutionalContractsTab } from "../components/InstitutionalContractsTab";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Link } from "react-router-dom";
 import { IntelligencePanel } from "../components/IntelligencePanel.js";
 import { useTranslation } from "../i18n";
 
 export default function SocietyDashboardPage() {
     const { t } = useTranslation();
   const { user } = useAuth();
+
+  if (user?.role !== "SOCIETY_ADMIN" && user?.role !== "ADMIN" && user?.role !== "SUPER_ADMIN") {
+    return <div className="p-8 text-center text-red-500">Access Denied. Society Admin privileges required.</div>;
+  }
+
   const [searchParams] = useSearchParams();
   const societyId = searchParams.get("societyId");
   
@@ -17,7 +27,7 @@ export default function SocietyDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actualTargetId, setActualTargetId] = useState<string | undefined>();
-
+      
   useEffect(() => {
     fetchDashboard();
   }, [societyId]);
@@ -56,6 +66,10 @@ export default function SocietyDashboardPage() {
           const membersData = await membersRes.json();
           setMembers(membersData.members || []);
         }
+
+        
+        
+
       }
     } catch (err: any) {
       setError(err.message);
@@ -64,6 +78,10 @@ export default function SocietyDashboardPage() {
     }
   };
 
+  
+  
+  
+  
   const handleUpdateStatus = async (membershipId: string, status: string) => {
     try {
       const res = await fetch(`/api/memberships/${membershipId}/status`, {
@@ -92,6 +110,15 @@ export default function SocietyDashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Skill Certifications</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">Review</div>
+            <Link to="/admin/certifications" className="text-xs text-blue-500 hover:underline">Manage Worker Certifications →</Link>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t("ui.total_workers")}</CardTitle>
@@ -150,15 +177,25 @@ export default function SocietyDashboardPage() {
         </Card>
       </div>
 
-      {actualTargetId && (
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">{t("ui.strategic_intelligence")}</h2>
-          <IntelligencePanel type="society" id={actualTargetId} />
-        </div>
-      )}
+      
 
-      <div className="mt-8">
-        <h2 className="text-xl font-semibold mb-4">{t("ui.membership_management")}</h2>
+      <Tabs defaultValue="overview" className="mt-8">
+                <TabsList className="mb-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="members">{t("ui.membership_management")}</TabsTrigger>
+          <TabsTrigger value="institutional">Institutional Contracts</TabsTrigger>
+          <TabsTrigger value="intelligence">Workforce Intelligence</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview">
+          {actualTargetId && (
+            <div>
+              <h2 className="text-xl font-semibold mb-4">{t("ui.strategic_intelligence")}</h2>
+              <IntelligencePanel type="society" id={actualTargetId} />
+            </div>
+          )}
+        </TabsContent>
+        <TabsContent value="members">
+          <h2 className="text-xl font-semibold mb-4">{t("ui.membership_management")}</h2>
         <div className="bg-white rounded-md border overflow-hidden">
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 border-b">
@@ -203,7 +240,15 @@ export default function SocietyDashboardPage() {
             </tbody>
           </table>
         </div>
-      </div>
+        </TabsContent>
+        
+                <TabsContent value="institutional">
+          <InstitutionalContractsTab societyId={actualTargetId || ''} onRefresh={fetchDashboard} />
+        </TabsContent>
+              <TabsContent value="intelligence">
+          <WorkforceIntelligenceTab societyId={actualTargetId || ''} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -1,0 +1,16 @@
+                      </div>
+                    </div>
+                  </CardContent>
+
+                  <CardFooter className="p-4 sm:p-5 pt-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-1 text-[11px] text-emerald-800 font-semibold">
+                      <Lock className="h-3.5 w-3.5 text-emerald-700" />
+                      <span>{t("marketplace.escrow_secured")}</span>
+                    </div>
+
+                    <Link to={`/tasks/${task.id}`} className="shrink-0">
+                      <Button 
+                        size="sm" 
+                        className={cn(
+                          "h-8 text-xs font-semibold gap-1 shadow-2xs",
+                          isWorker 

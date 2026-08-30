@@ -469,3 +469,8 @@ model Cancellation {
   @@index([taskId])
   @@index([userId])
 }
+
+model JobLock {
+  id       String   @id
+  lockedAt DateTime
+}

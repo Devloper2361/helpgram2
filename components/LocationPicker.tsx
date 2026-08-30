@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { useMap, useMapsLibrary, Map, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
+import { useMap, useMapsLibrary, Map, Marker } from '@vis.gl/react-google-maps';
+import { MapProvider } from '@/components/MapProvider';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { MapPin, Search } from 'lucide-react';
@@ -308,7 +309,7 @@ function LocationPickerInner({ onLocationSelect, initialLocation }: LocationPick
         <Map
           defaultCenter={{ lat: 20.2961, lng: 85.8245 }} // Default Bhubaneswar
           defaultZoom={11}
-          mapId="DEMO_MAP_ID"
+          
           internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
           style={{ width: '100%', height: '300px' }}
           disableDefaultUI={true}
@@ -316,13 +317,12 @@ function LocationPickerInner({ onLocationSelect, initialLocation }: LocationPick
           onClick={handleMapClick}
         >
           {markerPos && (
-             <AdvancedMarker 
+             <Marker 
                 position={markerPos} 
                 draggable={true} 
                 onDragEnd={handleMarkerDragEnd}
              >
-                <Pin background="#2563EB" glyphColor="#fff" borderColor="#1e40af" />
-             </AdvancedMarker>
+             </Marker>
           )}
         </Map>
         <div className="absolute top-2 left-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded shadow text-xs text-center pointer-events-none">
@@ -335,6 +335,8 @@ function LocationPickerInner({ onLocationSelect, initialLocation }: LocationPick
 
 export function LocationPicker(props: LocationPickerProps) {
   return (
-     <LocationPickerInner {...props} />
+     <MapProvider>
+       <LocationPickerInner {...props} />
+     </MapProvider>
   );
 }

@@ -100,7 +100,9 @@ export type MembershipRole = keyof typeof MembershipRole;
 export const ClaimStatus = {
   PENDING: "PENDING",
   APPROVED: "APPROVED",
-  REJECTED: "REJECTED"
+  REJECTED: "REJECTED",
+  SETTLEMENT_PROCESSING: "SETTLEMENT_PROCESSING",
+  SETTLED: "SETTLED"
 } as const;
 export type ClaimStatus = keyof typeof ClaimStatus;
 

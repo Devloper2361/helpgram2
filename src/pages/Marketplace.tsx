@@ -822,9 +822,21 @@ export default function MarketplacePage() {
                   </CardContent>
 
                   <CardFooter className="p-4 sm:p-5 pt-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-1 text-[11px] text-emerald-800 font-semibold">
-                      <Lock className="h-3.5 w-3.5 text-emerald-700" />
-                      <span>{t("marketplace.escrow_secured")}</span>
+                    <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 font-semibold truncate">
+                      <Lock className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
+                      <span className="truncate" title={
+                        task.status === "OPEN" ? t("task_detail.escrow_open_hint") :
+                        task.status === "COMPLETED" ? t("task_detail.escrow_released_hint") :
+                        task.status === "CANCELLED" ? t("task_detail.escrow_refunded_hint") :
+                        task.dispute ? t("task_detail.escrow_disputed_hint") :
+                        t("task_detail.escrow_locked_hint")
+                      }>
+                        {task.status === "OPEN" ? t("task_detail.escrow_open_hint") :
+                         task.status === "COMPLETED" ? t("task_detail.escrow_released_hint") :
+                         task.status === "CANCELLED" ? t("task_detail.escrow_refunded_hint") :
+                         task.dispute ? t("task_detail.escrow_disputed_hint") :
+                         t("task_detail.escrow_locked_hint")}
+                      </span>
                     </div>
 
                     <Link to={`/tasks/${task.id}`} className="shrink-0">

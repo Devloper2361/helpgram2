@@ -10,6 +10,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { I18nProvider } from "./i18n";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
+import { CertificationsAdminRoute } from "./components/CertificationsAdminRoute";
 import { CatalogAdminRoute } from "./components/CatalogAdminRoute";
 
 import DashboardPage from "./pages/Dashboard";
@@ -24,6 +25,7 @@ import ProfilePage from "./pages/Profile";
 import PublicProfilePage from "./pages/PublicProfile";
 
 import AdminPage from "./pages/Admin";
+import AdminCertifications from "./pages/AdminCertifications";
 
 import LoginPage from "./pages/auth/Login";
 import RegisterPage from "./pages/auth/Register";
@@ -181,6 +183,14 @@ export default function App() {
 
 
               {/* Platform Admin */}
+              <Route
+                path="admin/certifications"
+                element={
+                  <CertificationsAdminRoute>
+                    <AdminCertifications />
+                  </CertificationsAdminRoute>
+                }
+              />
               <Route
                 path="admin"
                 element={

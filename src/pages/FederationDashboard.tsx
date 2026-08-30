@@ -3,7 +3,8 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { IntelligencePanel } from "../components/IntelligencePanel.js";
+import { Link } from "react-router-dom";
+import { FederationIntelligenceTab } from "../components/FederationIntelligenceTab";
 import { useTranslation } from "../i18n";
 
 export default function FederationDashboardPage() {
@@ -51,6 +52,15 @@ export default function FederationDashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Skill Certifications</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">Review</div>
+            <Link to="/admin/certifications" className="text-xs text-blue-500 hover:underline">Manage Worker Certifications →</Link>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t("ui.total_societies")}</CardTitle>
@@ -117,12 +127,9 @@ export default function FederationDashboardPage() {
         </Card>
       </div>
 
-      {actualTargetId && (
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">{t("ui.strategic_intelligence")}</h2>
-          <IntelligencePanel type="federation" id={actualTargetId} />
-        </div>
-      )}
+      <div className="mt-8">
+        <FederationIntelligenceTab federationId={federationId || undefined} />
+      </div>
 
       <div className="mt-8">
         <h2 className="text-xl font-semibold mb-4">{t("ui.society_performance")}</h2>

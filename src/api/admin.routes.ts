@@ -92,21 +92,19 @@ router.post("/disputes/:id/refund", async (req: any, res: any) => {
     const updatedDispute = await prisma.$transaction(async (tx) => {
       // 1. Mark dispute resolved
       const resolved = await tx.dispute.update({
-        where: { id: dispute.id, version: dispute.version },
+        where: { id: dispute.id },
         data: {
           status: DisputeStatus.RESOLVED_REFUNDED,
-          resolution: req.body.resolution || "Refunded by admin",
-          version: { increment: 1 }
+          resolution: req.body.resolution || "Refunded by admin"
         }
       });
 
       // 2. Cancel Task
       await tx.task.update({
-        where: { id: dispute.taskId, version: dispute.task.version },
+        where: { id: dispute.taskId },
         data: {
           status: TaskStatus.CANCELLED,
-          cancelledAt: new Date(),
-          version: { increment: 1 }
+          cancelledAt: new Date()
         }
       });
 
@@ -172,21 +170,19 @@ router.post("/disputes/:id/payout", async (req: any, res: any) => {
     const updatedDispute = await prisma.$transaction(async (tx) => {
       // 1. Mark dispute resolved
       const resolved = await tx.dispute.update({
-        where: { id: dispute.id, version: dispute.version },
+        where: { id: dispute.id },
         data: {
           status: DisputeStatus.RESOLVED_RELEASED,
-          resolution: req.body.resolution || "Payout to tasker by admin",
-          version: { increment: 1 }
+          resolution: req.body.resolution || "Payout to tasker by admin"
         }
       });
 
       // 2. Complete Task
       await tx.task.update({
-        where: { id: dispute.taskId, version: dispute.task.version },
+        where: { id: dispute.taskId },
         data: {
           status: TaskStatus.COMPLETED,
-          completedAt: new Date(),
-          version: { increment: 1 }
+          completedAt: new Date()
         }
       });
 
@@ -264,24 +260,22 @@ router.post("/disputes/:id/partial-release", async (req: any, res: any) => {
     const updatedDispute = await prisma.$transaction(async (tx) => {
       // 1. Mark dispute resolved
       const resolved = await tx.dispute.update({
-        where: { id: dispute.id, version: dispute.version },
+        where: { id: dispute.id },
         data: {
           // Status could be considered RESOLVED_RELEASED since some money went out, or a new status.
           // Since partial release is closer to a split, we'll map to RESOLVED_RELEASED for trust hit on both or something,
           // or just RESOLVED_REFUNDED. Let's use RESOLVED_RELEASED.
           status: DisputeStatus.RESOLVED_RELEASED,
-          resolution: resolution || "Partial release by admin",
-          version: { increment: 1 }
+          resolution: resolution || "Partial release by admin"
         }
       });
 
       // 2. Complete Task (or cancel?) usually if partially done it's cancelled or completed. Let's mark COMPLETED to retain reviews.
       await tx.task.update({
-        where: { id: dispute.taskId, version: dispute.task.version },
+        where: { id: dispute.taskId },
         data: {
           status: TaskStatus.COMPLETED,
-          completedAt: new Date(),
-          version: { increment: 1 }
+          completedAt: new Date()
         }
       });
 

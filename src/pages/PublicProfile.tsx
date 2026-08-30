@@ -45,7 +45,7 @@ export default function PublicProfilePage() {
           <div className="flex items-center gap-4 text-sm text-slate-500 mt-1 flex-wrap">
             <span className="flex items-center gap-1"><MapPin className="h-4 w-4" /> {t("ui.global")}</span>
             <span className="flex items-center gap-1">
-              <Star className="h-4 w-4 text-amber-400" /> {profile.trustScore} {t("ui.trust_score")}</span>
+              <Star className="h-4 w-4 text-amber-400" /> {Number(profile.trustScore || 0).toFixed(1).replace(/\.0$/, '')} {t("ui.trust_score")}</span>
           </div>
         </div>
       </div>
@@ -89,7 +89,7 @@ export default function PublicProfilePage() {
               <CardContent className="text-sm space-y-4 text-slate-600">
                 <div className="flex justify-between items-center pb-2 border-b">
                    <span>{t("ui.trust_score")}</span> 
-                   <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">{Number(trustData.trustScore).toFixed(1)}</Badge>
+                   <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">{Number(trustData.trustScore).toFixed(1).replace(/\.0$/, '')}</Badge>
                 </div>
                 <div className="flex justify-between"><span>{t("ui.total_tasks")}</span> <span>{trustData.tasksCompleted + trustData.tasksCancelled}</span></div>
                 <div className="flex justify-between"><span>{t("ui.completion_rate")}</span> <span>{(trustData.completionRate * 100).toFixed(0)}%</span></div>

@@ -19,6 +19,7 @@ export async function findAndRankEligibleWorkers(taskId: string) {
   const task = await prisma.task.findUnique({
     where: { id: taskId },
     include: {
+      skills: true,
       service: {
         include: {
           category: true,
@@ -28,7 +29,7 @@ export async function findAndRankEligibleWorkers(taskId: string) {
     }
   });
 
-  if (task && task.taskType === "INSTITUTIONAL_PARENT") return [];
+  
   if (!task || task.status !== TaskStatus.OPEN || task.requesterId === null) {
     return []; // Task not dispatchable
   }
@@ -37,7 +38,13 @@ export async function findAndRankEligibleWorkers(taskId: string) {
     return [];
   }
 
-  const requiredSkillIds = task.service.skills.map(s => s.id);
+  const requiredSkillIds = new Set<string>();
+  if (task.service) {
+    task.service.skills.forEach(s => requiredSkillIds.add(s.id));
+  }
+  if ((task as any).skills) {
+    (task as any).skills.forEach((s: any) => requiredSkillIds.add(s.skillId));
+  }
   const federationId = task.service.category.federationId;
   const now = new Date();
   

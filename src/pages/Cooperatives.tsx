@@ -7,6 +7,7 @@ export default function CooperativesPage() {
     const { t } = useTranslation();
   const { user } = useAuth();
   const [societies, setSocieties] = useState<any[]>([]);
+  const [memberships, setMemberships] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,6 +16,15 @@ export default function CooperativesPage() {
   }, []);
 
   const fetchSocieties = async () => {
+    try {
+      if (user) {
+        const memRes = await fetch("/api/memberships/me");
+        if (memRes.ok) {
+          const memData = await memRes.json();
+          setMemberships(memData.societyMemberships || []);
+        }
+      }
+    } catch (e) {}
     try {
       setLoading(true);
       const res = await fetch("/api/societies");
@@ -66,10 +76,45 @@ export default function CooperativesPage() {
                 {soc.status}
               </span>
             </div>
-            {user?.role === "WORKER" && (
-              <Button onClick={() => handleApply(soc.id)} className="w-full">
-                {t("ui.apply_to_join")}</Button>
-            )}
+            {user?.role === "WORKER" && (() => {
+              const membership = memberships.find(m => m.societyId === soc.id);
+              if (!membership) {
+                return (
+                  <Button onClick={() => handleApply(soc.id)} className="w-full">
+                    {t("ui.apply_to_join")}
+                  </Button>
+                );
+              }
+              if (membership.status === "PENDING") {
+                return (
+                  <Button disabled variant="secondary" className="w-full">
+                    Pending
+                  </Button>
+                );
+              }
+              if (membership.status === "ACTIVE") {
+                return (
+                  <Button disabled variant="outline" className="w-full border-green-500 text-green-700 bg-green-50">
+                    Joined
+                  </Button>
+                );
+              }
+              if (membership.status === "REJECTED") {
+                return (
+                  <Button disabled variant="destructive" className="w-full">
+                    Rejected
+                  </Button>
+                );
+              }
+              if (membership.status === "SUSPENDED") {
+                return (
+                  <Button disabled variant="destructive" className="w-full">
+                    Suspended
+                  </Button>
+                );
+              }
+              return null;
+            })()}
           </div>
         ))}
         {societies.length === 0 && (

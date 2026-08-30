@@ -269,10 +269,9 @@ router.post("/withdraw", authenticate, withdrawLimiter, async (req: any, res: an
     // Deduct immediately, mark PROCESSING
     const transaction = await prisma.$transaction(async (tx) => {
       const updatedWallet = await tx.wallet.update({
-        where: { id: wallet.id, version: wallet.version },
+        where: { id: wallet.id },
         data: { 
-          balanceAvailable: { decrement: amount },
-          version: { increment: 1 } 
+          balanceAvailable: { decrement: amount } 
         }
       });
       

@@ -45,7 +45,7 @@ import {
   TrustScoreBadge,
   CooperativeShield
 } from "../components/TrustIndicators";
-import { Map, AdvancedMarker, Pin } from "@vis.gl/react-google-maps";
+import { Map, Marker } from "@vis.gl/react-google-maps";
 
 export default function TaskDetailPage() {
   const { t } = useTranslation();
@@ -221,7 +221,7 @@ export default function TaskDetailPage() {
   const isWorkerRole = currentUser?.role === "WORKER";
   const hasApplied = applications.some((a) => a.taskerId === currentUser?.id);
   const canEdit = isOwner && task?.status === "OPEN";
-  const canCancel = isOwner && (task?.status === "OPEN" || task?.status === "ACCEPTED" || task?.status === "IN_PROGRESS" || task?.status === "PROOF_SUBMITTED");
+  const canCancel = isOwner && task?.status === "OPEN";
 
   // Handler: Update Task (Edit Mode)
   const handleUpdateTask = async (e: React.FormEvent) => {
@@ -308,6 +308,32 @@ export default function TaskDetailPage() {
       toast.error("Failed to submit application");
     } finally {
       setIsSubmittingApply(false);
+    }
+  };
+
+  const [isRejectingHelper, setIsRejectingHelper] = useState<string | null>(null);
+  const [rejectedApplications, setRejectedApplications] = useState<string[]>([]);
+
+  // Handler: Reject Helper
+  const handleRejectHelper = async (taskerId: string) => {
+    setIsRejectingHelper(taskerId);
+    try {
+      const res = await fetch(`/api/tasks/${id}/reject-helper`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskerId })
+      });
+      if (res.ok) {
+        toast.success("Worker application rejected.");
+        setRejectedApplications(prev => [...prev, taskerId]);
+      } else {
+        const d = await res.json();
+        toast.error(d.error || "Failed to reject application");
+      }
+    } catch (e) {
+      toast.error("Failed to reject application");
+    } finally {
+      setIsRejectingHelper(null);
     }
   };
 
@@ -493,7 +519,7 @@ export default function TaskDetailPage() {
   const lifecycleSteps = [
     {
       key: "OPEN",
-      label: t("task_detail.step_posted"),
+      label: isHelper ? "Application" : t("task_detail.step_posted"),
       desc: t("task_detail.step_posted_desc"),
       isCompleted: task.status !== "OPEN" && task.status !== "CANCELLED",
       isCurrent: task.status === "OPEN",
@@ -501,7 +527,7 @@ export default function TaskDetailPage() {
     },
     {
       key: "ACCEPTED",
-      label: t("task_detail.step_assigned"),
+      label: isHelper ? "Selected" : t("task_detail.step_assigned"),
       desc: t("task_detail.step_assigned_desc"),
       isCompleted: ["IN_PROGRESS", "PROOF_SUBMITTED", "COMPLETED"].includes(task.status),
       isCurrent: task.status === "ACCEPTED",
@@ -509,7 +535,7 @@ export default function TaskDetailPage() {
     },
     {
       key: "IN_PROGRESS",
-      label: t("task_detail.step_progress"),
+      label: isHelper ? "Start Task" : t("task_detail.step_progress"),
       desc: t("task_detail.step_progress_desc"),
       isCompleted: ["PROOF_SUBMITTED", "COMPLETED"].includes(task.status),
       isCurrent: task.status === "IN_PROGRESS",
@@ -517,7 +543,7 @@ export default function TaskDetailPage() {
     },
     {
       key: "PROOF_SUBMITTED",
-      label: t("task_detail.step_proof"),
+      label: isHelper ? "Submit Proof" : t("task_detail.step_proof"),
       desc: t("task_detail.step_proof_desc"),
       isCompleted: task.status === "COMPLETED",
       isCurrent: task.status === "PROOF_SUBMITTED",
@@ -525,7 +551,7 @@ export default function TaskDetailPage() {
     },
     {
       key: "COMPLETED",
-      label: t("task_detail.step_completed"),
+      label: isHelper ? "Payment / Completed" : t("task_detail.step_completed"),
       desc: t("task_detail.step_completed_desc"),
       isCompleted: task.status === "COMPLETED",
       isCurrent: task.status === "COMPLETED",
@@ -663,7 +689,7 @@ export default function TaskDetailPage() {
               )}
 
               {(isOwner || isHelper) &&
-                ["ACCEPTED", "IN_PROGRESS", "PROOF_SUBMITTED", "COMPLETED"].includes(task.status) &&
+                ["ACCEPTED", "IN_PROGRESS", "PROOF_SUBMITTED"].includes(task.status) &&
                 !task.dispute &&
                 !isDisputing && (
                   <Button
@@ -1323,24 +1349,41 @@ export default function TaskDetailPage() {
                                 </div>
                               </div>
 
-                              <Button
-                                onClick={() =>
-                                  setConfirmModal({
-                                    isOpen: true,
-                                    title: "Select Worker & Lock Escrow?",
-                                    description: `Confirm assigning this task to ${profile?.fullName || "this worker"}. Booking funds will be safely locked in HelpGram cooperative escrow.`,
-                                    confirmText: t("task_detail.select_worker_btn"),
-                                    variant: "default",
-                                    onConfirm: () => handleSelectHelper(tasker.id),
-                                  })
-                                }
-                                disabled={isSelectingHelper === tasker.id}
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shrink-0 w-full sm:w-auto"
-                              >
-                                {isSelectingHelper === tasker.id
-                                  ? t("task_detail.selecting")
-                                  : t("task_detail.select_worker_btn")}
-                              </Button>
+                              {rejectedApplications.includes(tasker.id) ? (
+                                <div className="flex items-center gap-2 text-slate-500 bg-slate-100 px-3 py-1.5 rounded-md text-xs font-semibold shrink-0">
+                                  <X className="w-4 h-4" />
+                                  Rejected
+                                </div>
+                              ) : (
+                                <div className="flex flex-col sm:flex-row gap-2 shrink-0 w-full sm:w-auto">
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => handleRejectHelper(tasker.id)}
+                                    disabled={isRejectingHelper === tasker.id || isSelectingHelper === tasker.id}
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 font-semibold text-xs shrink-0 w-full sm:w-auto"
+                                  >
+                                    {isRejectingHelper === tasker.id ? "Rejecting..." : "Reject"}
+                                  </Button>
+                                  <Button
+                                    onClick={() =>
+                                      setConfirmModal({
+                                        isOpen: true,
+                                        title: "Select Worker & Lock Escrow?",
+                                        description: `Confirm assigning this task to ${profile?.fullName || "this worker"}. Booking funds will be safely locked in HelpGram cooperative escrow.`,
+                                        confirmText: t("task_detail.select_worker_btn"),
+                                        variant: "default",
+                                        onConfirm: () => handleSelectHelper(tasker.id),
+                                      })
+                                    }
+                                    disabled={isSelectingHelper === tasker.id || isRejectingHelper === tasker.id}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shrink-0 w-full sm:w-auto"
+                                  >
+                                    {isSelectingHelper === tasker.id
+                                      ? t("task_detail.selecting")
+                                      : t("task_detail.select_worker_btn")}
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -1444,44 +1487,47 @@ export default function TaskDetailPage() {
               )}
 
               {/* Active Dispute Information Banner (if task is in dispute) */}
-              {task.dispute && (
-                <Card className="border-red-200 bg-red-50/50 shadow-xs">
-                  <CardHeader className="py-4 px-5 border-b border-red-100 bg-red-100/40">
-                    <CardTitle className="text-base text-red-950 flex items-center gap-2 font-bold">
-                      <ShieldAlert className="w-5 h-5 text-red-700" />
-                      {t("task_detail.dispute_banner_title")}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-5 sm:p-6 space-y-3 text-xs sm:text-sm">
-                    <div className="flex justify-between items-center py-1 border-b border-red-100">
-                      <span className="font-semibold text-red-900">
-                        {t("task_detail.dispute_status_label")}
-                      </span>
-                      <Badge variant="destructive" className="bg-red-600">
-                        {task.dispute.status}
-                      </Badge>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-red-900 block mb-1">
-                        {t("task_detail.dispute_reason_label")}:
-                      </span>
-                      <p className="text-red-800 bg-white p-3 rounded-lg border border-red-200/80 leading-relaxed">
-                        {task.dispute.reason}
-                      </p>
-                    </div>
-                    {task.dispute.resolution && (
-                      <div className="pt-2">
-                        <span className="font-semibold text-red-900 block mb-1">
-                          {t("task_detail.dispute_resolution_label")}:
+              {task.dispute && (() => {
+                const isResolved = ["RESOLVED_REFUNDED", "RESOLVED_RELEASED", "REJECTED"].includes(task.dispute.status);
+                return (
+                  <Card className={`shadow-xs ${isResolved ? "border-emerald-200 bg-emerald-50/50" : "border-red-200 bg-red-50/50"}`}>
+                    <CardHeader className={`py-4 px-5 border-b ${isResolved ? "border-emerald-100 bg-emerald-100/40" : "border-red-100 bg-red-100/40"}`}>
+                      <CardTitle className={`text-base flex items-center gap-2 font-bold ${isResolved ? "text-emerald-950" : "text-red-950"}`}>
+                        {isResolved ? <CheckCircle2 className="w-5 h-5 text-emerald-700" /> : <ShieldAlert className="w-5 h-5 text-red-700" />}
+                        {isResolved ? t("task_detail.dispute_banner_title_resolved") : t("task_detail.dispute_banner_title")}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-5 sm:p-6 space-y-3 text-xs sm:text-sm">
+                      <div className={`flex justify-between items-center py-1 border-b ${isResolved ? "border-emerald-100" : "border-red-100"}`}>
+                        <span className={`font-semibold ${isResolved ? "text-emerald-900" : "text-red-900"}`}>
+                          {t("task_detail.dispute_status_label")}
                         </span>
-                        <p className="text-red-900 font-medium bg-white p-3 rounded-lg border border-red-200">
-                          {task.dispute.resolution}
+                        <Badge variant={isResolved ? "default" : "destructive"} className={isResolved ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-red-600"}>
+                          {task.dispute.status}
+                        </Badge>
+                      </div>
+                      <div>
+                        <span className={`font-semibold block mb-1 ${isResolved ? "text-emerald-900" : "text-red-900"}`}>
+                          {t("task_detail.dispute_reason_label")}:
+                        </span>
+                        <p className={`p-3 rounded-lg border leading-relaxed bg-white ${isResolved ? "text-emerald-800 border-emerald-200/80" : "text-red-800 border-red-200/80"}`}>
+                          {task.dispute.reason}
                         </p>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+                      {task.dispute.resolution && (
+                        <div className="pt-2">
+                          <span className={`font-semibold block mb-1 ${isResolved ? "text-emerald-900" : "text-red-900"}`}>
+                            {t("task_detail.dispute_resolution_label")}:
+                          </span>
+                          <p className={`font-medium p-3 rounded-lg border bg-white ${isResolved ? "text-emerald-900 border-emerald-200" : "text-red-900 border-red-200"}`}>
+                            {task.dispute.resolution}
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
               {/* Open Dispute Form Modal/Section */}
               {isDisputing && !task.dispute && (
@@ -1816,16 +1862,14 @@ export default function TaskDetailPage() {
                   {/* Embedded Google Map Preview */}
                   {task.locationLat && task.locationLng && (
                     <div className="w-full h-44 rounded-xl overflow-hidden border border-slate-200 relative shadow-inner">
-                      <Map mapId="DEMO_MAP_ID"
+                      <Map
                         defaultCenter={{ lat: Number(task.locationLat), lng: Number(task.locationLng) }}
                         defaultZoom={14}
                         gestureHandling="cooperative"
                         disableDefaultUI={true}
                         className="w-full h-full"
                       >
-                        <AdvancedMarker position={{ lat: Number(task.locationLat), lng: Number(task.locationLng) }}>
-                          <Pin background="#2563eb" glyphColor="#ffffff" borderColor="#1e40af" />
-                        </AdvancedMarker>
+                        <Marker position={{ lat: Number(task.locationLat), lng: Number(task.locationLng) }} />
                       </Map>
                     </div>
                   )}

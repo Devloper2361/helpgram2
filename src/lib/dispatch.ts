@@ -1,13 +1,10 @@
+import { generateContentWithRetry } from "./ai-helper";
 import { prisma } from "./prisma.js";
 import { sendSSE } from "./sse.js";
 import { findAndRankEligibleWorkers } from "./fairShare.js";
 import { GoogleGenAI, Type } from "@google/genai";
 
 export async function triggerEmergencyDispatch(task: any) {
-  if (task.taskType === "INSTITUTIONAL_PARENT") {
-    console.log(`Skipping emergency dispatch for institutional parent task ${task.id}`);
-    return;
-  }
   try {
     console.log(`Starting emergency dispatch for task ${task.id}`);
     
@@ -40,7 +37,7 @@ Candidates:
 ${JSON.stringify(candidateData, null, 2)}
 Return a JSON array of objects, each containing the 'workerId' and the 'rank' (1 being best).`;
 
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithRetry(ai, {
            model: "gemini-3.6-flash",
            contents: prompt,
            config: {

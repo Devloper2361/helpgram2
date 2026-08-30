@@ -157,6 +157,7 @@ export function TrustScoreBadge({
 }) {
   const { t } = useTranslation();
   const safeScore = Math.min(Math.max(Number(score) || 0, 0), maxScore);
+  const displayScore = Number.isInteger(safeScore) ? safeScore : safeScore.toFixed(1);
   const percentage = Math.round((safeScore / maxScore) * 100);
 
   let badgeColor = "bg-emerald-50 text-emerald-900 border-emerald-200";
@@ -177,7 +178,7 @@ export function TrustScoreBadge({
     <div className={cn("inline-flex flex-col gap-1", className)}>
       <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border text-xs font-semibold select-none", badgeColor)}>
         <Award className="h-3.5 w-3.5 shrink-0" />
-        <span>{t("trust.trust_score")}: {safeScore}/{maxScore}</span>
+        <span>{t("trust.trust_score")}: {displayScore}/{maxScore}</span>
         <span className="text-[10px] opacity-80">({label})</span>
       </span>
       {showMeter && (

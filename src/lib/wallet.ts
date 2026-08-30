@@ -15,7 +15,6 @@ export class WalletError extends Error {
 export async function depositFunds({
   walletId,
   amount,
-  razorpayOrderId,
   idempotencyKey
 }: {
   walletId: string;
@@ -38,10 +37,9 @@ export async function depositFunds({
 
     // Atomic update with OCC
     const updatedWallet = await tx.wallet.update({
-      where: { id: walletId, version: wallet.version },
+      where: { id: walletId },
       data: {
-        balanceAvailable: { increment: amount },
-        version: { increment: 1 }
+        balanceAvailable: { increment: amount }
       }
     });
 
@@ -50,12 +48,10 @@ export async function depositFunds({
       data: {
         walletId,
         amount,
-        balanceAfter: updatedWallet.balanceAvailable,
+        
         type: TransactionType.DEPOSIT,
         status: TransactionStatus.COMPLETED,
-        razorpayOrderId,
-        idempotencyKey,
-        description: "Deposit funds"
+        idempotencyKey
       }
     });
 
@@ -66,7 +62,6 @@ export async function depositFunds({
 export async function withdrawFunds({
   walletId,
   amount,
-  razorpayPayoutId,
   idempotencyKey
 }: {
   walletId: string;
@@ -92,10 +87,9 @@ export async function withdrawFunds({
 
     // Atomic update with OCC
     const updatedWallet = await tx.wallet.update({
-      where: { id: walletId, version: wallet.version },
+      where: { id: walletId },
       data: {
-        balanceAvailable: { decrement: amount },
-        version: { increment: 1 }
+        balanceAvailable: { decrement: amount }
       }
     });
 
@@ -104,12 +98,10 @@ export async function withdrawFunds({
       data: {
         walletId,
         amount, // Stored as positive to follow ledger rules or negative depending on preference, but amount is positive.
-        balanceAfter: updatedWallet.balanceAvailable,
+        
         type: TransactionType.WITHDRAWAL,
         status: TransactionStatus.PROCESSING, // It might be processing via stripe or razorpay
-        razorpayPayoutId,
-        idempotencyKey,
-        description: "Withdrawal request"
+        idempotencyKey
       }
     });
 
@@ -145,11 +137,10 @@ export async function lockFundsTx(
 
   // Atomic wallet update
   const updatedWallet = await tx.wallet.update({
-    where: { id: walletId, version: wallet.version },
+    where: { id: walletId },
     data: {
       balanceAvailable: { decrement: amount },
-      balanceEscrowed: { increment: amount },
-      version: { increment: 1 }
+      balanceEscrowed: { increment: amount }
     }
   });
 
@@ -165,9 +156,8 @@ export async function lockFundsTx(
     data: {
       taskId,
       amount,
-      status: EscrowStatus.LOCKED,
-      version: 1,
-    }
+      status: EscrowStatus.LOCKED
+      }
   });
 
   // Create transaction ledger
@@ -177,11 +167,10 @@ export async function lockFundsTx(
       taskId,
       escrowEntryId: escrowEntry.id,
       amount,
-      balanceAfter: updatedWallet.balanceAvailable,
+      
       type: TransactionType.ESCROW_LOCK,
       status: TransactionStatus.COMPLETED,
-      idempotencyKey,
-      description: `Funds locked for task ${taskId}`
+      idempotencyKey
     }
   });
 
@@ -240,28 +229,25 @@ export async function releaseFundsTx(
 
   // Decrement escrowed funds from requester
   await tx.wallet.update({
-    where: { id: requesterWallet.id, version: requesterWallet.version },
+    where: { id: requesterWallet.id },
     data: {
-      balanceEscrowed: { decrement: releaseAmount },
-      version: { increment: 1 }
+      balanceEscrowed: { decrement: releaseAmount }
     }
   });
 
   // Increment available funds for tasker
   const updatedTaskerWallet = await tx.wallet.update({
-    where: { id: taskerWallet.id, version: taskerWallet.version },
+    where: { id: taskerWallet.id },
     data: {
-      balanceAvailable: { increment: amountToTasker },
-      version: { increment: 1 }
+      balanceAvailable: { increment: amountToTasker }
     }
   });
 
   // Update escrow entry status
   await tx.escrowEntry.update({
-    where: { id: escrowEntry.id, version: escrowEntry.version },
+    where: { id: escrowEntry.id },
     data: {
-      status: EscrowStatus.RELEASED,
-      version: { increment: 1 }
+      status: EscrowStatus.RELEASED
     }
   });
 
@@ -272,11 +258,10 @@ export async function releaseFundsTx(
       taskId,
       escrowEntryId: escrowEntry.id,
       amount: amountToTasker,
-      balanceAfter: updatedTaskerWallet.balanceAvailable,
+      
       type: TransactionType.ESCROW_RELEASE,
       status: TransactionStatus.COMPLETED,
-      idempotencyKey,
-      description: `Funds released for task ${taskId}`
+      idempotencyKey
     }
   });
 
@@ -286,8 +271,7 @@ export async function releaseFundsTx(
       data: {
         taskId,
         transactionId: transaction.id,
-        amount: platformFee,
-        description: `Platform fee for task ${taskId}`
+        amount: platformFee
       }
     });
   }
@@ -335,19 +319,17 @@ export async function refundFundsTx(
 
   // Move escrow back to available
   const updatedWallet = await tx.wallet.update({
-    where: { id: requesterWallet.id, version: requesterWallet.version },
+    where: { id: requesterWallet.id },
     data: {
       balanceEscrowed: { decrement: refundAmount },
-      balanceAvailable: { increment: refundAmount },
-      version: { increment: 1 }
+      balanceAvailable: { increment: refundAmount }
     }
   });
 
   await tx.escrowEntry.update({
-    where: { id: escrowEntry.id, version: escrowEntry.version },
+    where: { id: escrowEntry.id },
     data: {
-      status: EscrowStatus.REFUNDED,
-      version: { increment: 1 }
+      status: EscrowStatus.REFUNDED
     }
   });
 
@@ -357,11 +339,10 @@ export async function refundFundsTx(
       taskId,
       escrowEntryId: escrowEntry.id,
       amount: refundAmount,
-      balanceAfter: updatedWallet.balanceAvailable,
+      
       type: TransactionType.ESCROW_REFUND,
       status: TransactionStatus.COMPLETED,
-      idempotencyKey,
-      description: `Funds refunded for task ${taskId}`
+      idempotencyKey
     }
   });
 
@@ -392,10 +373,9 @@ export async function freezeEscrowTx(
   }
 
   await tx.escrowEntry.update({
-    where: { id: escrowEntry.id, version: escrowEntry.version },
+    where: { id: escrowEntry.id },
     data: {
-      status: EscrowStatus.DISPUTED,
-      version: { increment: 1 }
+      status: EscrowStatus.DISPUTED
     }
   });
 
@@ -453,28 +433,25 @@ export async function partialReleaseFundsTx(
 
   // Decrement total escrow from requester
   const updatedRequesterWallet = await tx.wallet.update({
-    where: { id: requesterWallet.id, version: requesterWallet.version },
+    where: { id: requesterWallet.id },
     data: {
       balanceEscrowed: { decrement: escrowAmount },
-      balanceAvailable: { increment: requesterAmount },
-      version: { increment: 1 }
+      balanceAvailable: { increment: requesterAmount }
     }
   });
 
   // Increment tasker available
   const updatedTaskerWallet = await tx.wallet.update({
-    where: { id: taskerWallet.id, version: taskerWallet.version },
+    where: { id: taskerWallet.id },
     data: {
-      balanceAvailable: { increment: taskerAmount },
-      version: { increment: 1 }
+      balanceAvailable: { increment: taskerAmount }
     }
   });
 
   await tx.escrowEntry.update({
-    where: { id: escrowEntry.id, version: escrowEntry.version },
+    where: { id: escrowEntry.id },
     data: {
-      status: EscrowStatus.PARTIAL_RELEASE,
-      version: { increment: 1 }
+      status: EscrowStatus.PARTIAL_RELEASE
     }
   });
 
@@ -484,11 +461,10 @@ export async function partialReleaseFundsTx(
       taskId,
       escrowEntryId: escrowEntry.id,
       amount: taskerAmount,
-      balanceAfter: updatedTaskerWallet.balanceAvailable,
+      
       type: TransactionType.ESCROW_RELEASE,
       status: TransactionStatus.COMPLETED,
-      idempotencyKey,
-      description: `Partial funds released for task ${taskId}`
+      idempotencyKey
     }
   });
 
@@ -499,11 +475,10 @@ export async function partialReleaseFundsTx(
       taskId,
       escrowEntryId: escrowEntry.id,
       amount: requesterAmount,
-      balanceAfter: updatedRequesterWallet.balanceAvailable,
+      
       type: TransactionType.ESCROW_REFUND,
       status: TransactionStatus.COMPLETED,
-      idempotencyKey: `${idempotencyKey}_refund`,
-      description: `Partial funds refunded for task ${taskId}`
+      idempotencyKey: idempotencyKey + "_refund"
     }
   });
 

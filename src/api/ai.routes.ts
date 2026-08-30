@@ -1,3 +1,4 @@
+import { generateContentWithRetry } from "../lib/ai-helper";
 import { Router } from "express";
 import { z } from "zod";
 import { PrismaClient } from "@prisma/client";
@@ -84,7 +85,7 @@ ACTIVE SERVICE CATALOG:
 ${JSON.stringify(serviceContext, null, 2)}
 `;
 
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithRetry(ai, {
       model: "gemini-3.6-flash",
       contents: problem,
       config: {

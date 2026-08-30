@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Star, ShieldCheck, Mail, Trash2 } from "lucide-react";
 import { useTranslation } from "../i18n";
+import { LocationPicker, LocationData } from "@/components/LocationPicker";
 
 export default function ProfilePage() {
     const { t } = useTranslation();
@@ -15,8 +16,10 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   
-  const [editForm, setEditForm] = useState({ fullName: "", bio: "" });
+  const [editForm, setEditForm] = useState<{fullName: string, bio: string, location?: string, locationLat?: number, locationLng?: number, address?: string, landmark?: string, city?: string, state?: string, avatarUrl?: string}>({ fullName: "", bio: "" });
   const [newSkill, setNewSkill] = useState("");
+  const [certifyModal, setCertifyModal] = useState<{isOpen: boolean, skillId: string, skillName: string}>({isOpen: false, skillId: "", skillName: ""});
+  const [certifyFile, setCertifyFile] = useState<File | null>(null);
 
   const fetchProfileAndMetrics = async () => {
     try {
@@ -26,7 +29,15 @@ export default function ProfilePage() {
         setProfile(data.profile);
         setEditForm({
           fullName: data.profile.fullName || "",
-          bio: data.profile.bio || ""
+          bio: data.profile.bio || "",
+          location: data.profile.location || "",
+          locationLat: data.profile.locationLat || 0,
+          locationLng: data.profile.locationLng || 0,
+          address: data.profile.address || "",
+          landmark: data.profile.landmark || "",
+          city: data.profile.city || "",
+          state: data.profile.state || "",
+          avatarUrl: data.profile.avatarUrl || ""
         });
         
         const userId = data.profile.userId;
@@ -129,6 +140,7 @@ export default function ProfilePage() {
       {/* Header Profile Info */}
       <div className="flex flex-col md:flex-row gap-6 items-start md:items-end mb-8 pt-4">
         <Avatar className="h-24 w-24 border-4 border-white shadow-sm ring-1 ring-slate-100">
+          <AvatarImage src={profile.avatarUrl} className="object-cover" />
           <AvatarFallback className="text-3xl bg-blue-50 text-blue-600">
             {(profile.fullName || profile.user?.email || "U").substring(0, 2).toUpperCase()}
           </AvatarFallback>
@@ -136,7 +148,7 @@ export default function ProfilePage() {
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">{profile.fullName || profile.user?.email?.split('@')[0] || "Anonymous User"}</h1>
           <div className="flex items-center gap-4 text-sm text-slate-500 mt-1 flex-wrap">
-            <span className="flex items-center gap-1"><MapPin className="h-4 w-4" /> {t("ui.global")}</span>
+            <span className="flex items-center gap-1"><MapPin className="h-4 w-4" /> {profile.location || t("ui.global")}</span>
             <span className="flex items-center gap-1">
               <Star className="h-4 w-4 text-amber-400" /> {profile.trustScore} {t("ui.trust_score")}</span>
             <span className="flex items-center gap-1"><Mail className="h-4 w-4" /> {profile.user.email}</span>
@@ -156,7 +168,32 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleUpdateProfile} className="space-y-4">
-              <div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1">Profile Image</label>
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const formData = new FormData();
+                    formData.append("avatar", file);
+                    try {
+                      const res = await fetch("/api/profile/avatar", {
+                        method: "POST",
+                        body: formData
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        setEditForm(prev => ({...prev, avatarUrl: data.avatarUrl}));
+                        setProfile(prev => ({...prev, avatarUrl: data.avatarUrl}));
+                      }
+                    } catch (err) {}
+                  }}
+                  className="w-full border rounded-md p-2 text-sm"
+                />
+              </div>
+              <div className="mb-4">
                 <label className="block text-sm font-medium mb-1">{t("ui.full_name")}</label>
                 <input 
                   type="text" 
@@ -165,7 +202,34 @@ export default function ProfilePage() {
                   className="w-full border rounded-md p-2"
                 />
               </div>
-              <div>
+              <div className="mb-4 space-y-2">
+                <label className="block text-sm font-medium mb-1">Service Location</label>
+                <LocationPicker 
+                  initialLocation={
+                    editForm.locationLat && editForm.locationLng 
+                      ? { 
+                          address: editForm.address || editForm.location || "", 
+                          landmark: editForm.landmark || "", city: editForm.city || "", state: editForm.state || "", 
+                          locationLat: editForm.locationLat, 
+                          locationLng: editForm.locationLng 
+                        } 
+                      : null
+                  }
+                  onLocationSelect={(loc: LocationData) => {
+                    setEditForm(prev => ({
+                      ...prev, 
+                      location: loc.address || loc.city || "Selected Location", 
+                      locationLat: loc.locationLat, 
+                      locationLng: loc.locationLng,
+                      address: loc.address,
+                      landmark: loc.landmark,
+                      city: loc.city,
+                      state: loc.state
+                    }));
+                  }}
+                />
+              </div>
+              <div className="mb-4">
                 <label className="block text-sm font-medium mb-1">{t("ui.bio")}</label>
                 <textarea 
                   value={editForm.bio} 
@@ -232,24 +296,10 @@ export default function ProfilePage() {
                     <span>{skill.name}</span>
                     <span className={`text-xs ml-1 ${certColor}`}>({certLabel})</span>
                     {!cert || cert.status === "REJECTED" ? (
-                      <button onClick={async () => {
-                        const evidence = prompt("Enter evidence URL for certification:");
-                        if (evidence !== null) {
-                          const res = await fetch('/api/certifications', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ skillId: skill.id, evidence })
-                          });
-                          if (res.ok) {
-                            alert('Certification requested');
-                            fetchProfile();
-                          } else {
-                            const err = await res.json();
-                            alert(typeof err.error === "string" ? err.error : (err.error?.formErrors?.[0] || JSON.stringify(err.error) || 'Failed to request certification'));
-                          }
-                        }
-                      }} className="hover:text-blue-500 ml-1 ml-2 text-xs" title="Request Certification">
+                      
+                      <button onClick={() => setCertifyModal({isOpen: true, skillId: skill.id, skillName: skill.name})} className="hover:text-blue-500 ml-1 ml-2 text-xs" title="Request Certification">
                         {t("ui.certify")}</button>
+
                     ) : null}
                     <button onClick={() => handleRemoveSkill(skill.id)} className="hover:text-red-500 ml-1">
                       <Trash2 className="h-3 w-3" />
@@ -270,7 +320,7 @@ export default function ProfilePage() {
               <CardContent className="text-sm space-y-4 text-slate-600">
                 <div className="flex justify-between items-center pb-2 border-b">
                    <span>{t("ui.trust_score")}</span> 
-                   <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">{Number(trustData.trustScore).toFixed(1)}</Badge>
+                   <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">{Number(trustData.trustScore).toFixed(1).replace(/\.0$/, '')}</Badge>
                 </div>
                 <div className="flex justify-between"><span>{t("ui.total_tasks")}</span> <span>{trustData.tasksCompleted + trustData.tasksCancelled}</span></div>
                 <div className="flex justify-between"><span>{t("ui.completion_rate")}</span> <span>{(trustData.completionRate * 100).toFixed(0)}%</span></div>
@@ -322,6 +372,47 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      {certifyModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <h3 className="text-lg font-bold">Certify Skill: {certifyModal.skillName}</h3>
+            <p className="text-sm text-slate-600">Please upload a document (PDF or Image) to verify your skill.</p>
+            <input 
+              type="file"
+              onChange={(e) => setCertifyFile(e.target.files?.[0] || null)}
+              className="w-full border rounded-md p-2 text-sm"
+            />
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => { setCertifyModal({isOpen: false, skillId: "", skillName: ""}); setCertifyFile(null); }}>Cancel</Button>
+              <Button onClick={async () => {
+                if (!certifyFile) return;
+                const formData = new FormData();
+                formData.append("evidence", certifyFile);
+                try {
+                  const res = await fetch(`/api/profile/skills/${certifyModal.skillId}/certify`, {
+                    method: "POST",
+                    body: formData
+                  });
+                  if (res.ok) {
+                    alert('Certification requested');
+                    setCertifyModal({isOpen: false, skillId: "", skillName: ""});
+                    setCertifyFile(null);
+                    fetchProfileAndMetrics();
+                  } else {
+                    const err = await res.json();
+                    alert(err.error || 'Failed to request certification');
+                  }
+                } catch (e) {
+                  console.error(e);
+                  alert('Error uploading document');
+                }
+              }}>{t("ui.submit")}</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+
 }
